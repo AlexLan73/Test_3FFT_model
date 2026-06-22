@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "radar3d"
+version = "0.1.0"
+description = "Пространственно-временна́я 3D-БПФ обработка: предварительная сортировка сигналов на матричных ядрах GPU + каскад-классификатор"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Alex Lan", email = "ltestai73@gmail.com" }
+]
+
+dependencies = [
+    "numpy>=1.26.0",
+    "matplotlib>=3.8.0",
+]
+
+[project.optional-dependencies]
+# Обучаемый 3D-CNN классификатор. torch+ROCm НЕ ставится через PyPI —
+# только из офлайн-пака (cp312), см. .claude/rules/05-python-style.md «GPU / torch-ROCm».
+cnn = [
+    "torch==2.11.0+rocm7.2",
+]
+dev = [
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+    # "pytest" — ЗАПРЕЩЁН (см. .claude/rules/04-testing-python.md). Используем TestRunner.
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core*", "common*"]
+exclude = ["tests*", "MemoryBank*", "Example*", "Charts*", "1111*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RET"]
+ignore = ["E501"]   # длинные строки разрешены для коммент-блоков
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true

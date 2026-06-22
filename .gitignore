@@ -216,3 +216,39 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ════════════════════════════════════════════════════════════════
+#  radar3d (Test_3FFT_model) — проектные правила
+# ════════════════════════════════════════════════════════════════
+
+# --- Артефакты прогона (генерятся main.py / контроллером) ---
+out/
+RADAR_OUT/
+# .npy/.png пишутся в out/ — каталог уже игнорится выше; глобально png НЕ ловим
+# (в Example/ лежат нужные референсные .png).
+
+# --- Веса / чекпойнты моделей (генерятся train_cnn.py) ---
+*.pt
+*.pth
+*.onnx
+*.ckpt
+cnn3d.pt
+
+# --- Claude Code: локальное и опасное ---
+.claude/settings.local.json
+# 🚨 правило 03: писать в worktrees ЗАПРЕЩЕНО, в git они не попадают
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+
+# --- MCP persistent memory (локальное состояние сессий) ---
+MemoryBank/.mcp_memory.json
+MemoryBank/.mcp_memory.json.bak
+
+# --- Scratch / временные дампы ---
+1111/
+*.tmp
+*.bak
+
+# --- ОС ---
+.DS_Store
+Thumbs.db

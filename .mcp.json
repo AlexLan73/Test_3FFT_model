@@ -1,0 +1,29 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schema",
+  "_comment": "MCP-серверы для Кодо в radar3d. Перенесено из rag-mentor (Python-релевантный набор, без postgres/qdrant — БД проекту не нужны).",
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${HOME}/Python/Test_3FFT_model"],
+      "description": "Кодо читает radar3d локально"
+    },
+    "git_mcp": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-git", "--repository", "${HOME}/Python/Test_3FFT_model"],
+      "description": "История коммитов, спек, sessions"
+    },
+    "sequential_thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "description": "Глубокий анализ (архитектура / математика 3D-БПФ)"
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "env": {
+        "MEMORY_FILE_PATH": "${HOME}/Python/Test_3FFT_model/MemoryBank/.mcp_memory.json"
+      },
+      "description": "Persistent memory across Claude Code sessions"
+    }
+  }
+}
