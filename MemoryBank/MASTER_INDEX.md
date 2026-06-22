@@ -14,6 +14,7 @@
 |-----|-----|
 | Правила Кодо | `.claude/rules/*.md` (6 файлов) |
 | Архитектура / запуск | `CLAUDE.md`, `README.md` |
+| Документация | `Doc/` — [C4](../Doc/architecture/README.md), [папки](../Doc/folders.md), [классы](../Doc/classes.md) |
 | Активные задачи | `MemoryBank/tasks/IN_PROGRESS.md` |
 | Спеки / ревью / исследования | `MemoryBank/specs/` |
 | Журнал сессий | `MemoryBank/sessions/YYYY-MM-DD.md` |
