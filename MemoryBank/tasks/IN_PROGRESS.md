@@ -9,4 +9,7 @@
 
 ## Следующее
 
-- _(пусто — Alex поставит задачу)_
+- 📝 **Рефакторинг графики** (2026-07-06) — перенос черновых визуализаций в `core/graphics/`,
+  причёсывание через `AxisLayout`, **параллельная plotly-ветка** (интерактив). Ждёт ревью.
+  → [`TASK_graphics_refactor_phase1.md`](TASK_graphics_refactor_phase1.md)
+  + спека [`specs/graphics_refactor_2026-07-06.md`](../specs/graphics_refactor_2026-07-06.md)

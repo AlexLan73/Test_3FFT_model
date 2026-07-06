@@ -9,7 +9,7 @@ import os
 from core.config import default_scenario
 from core.models import Fft3DModel, AxisWindows, HannWindow
 from core.graphics import (CubeScatterVisualizer, AngularMapVisualizer,
-                           RangeProfileVisualizer, FigureWriter)
+                           RangeProfileVisualizer, FigureWriter, AxisLayout)
 from core.data_context import DataContext
 from core.models import RuleBasedClassifier
 from core.controller import SimulationController
@@ -33,6 +33,8 @@ def main() -> None:
     writer = FigureWriter(os.path.join(OUT, "figures"))
     visualizers = {
         "cube_scatter.png": CubeScatterVisualizer(threshold_db=-22, range_limit=40),
+        "cube_scatter_range_depth.png": CubeScatterVisualizer(
+            threshold_db=-22, range_limit=40, layout=AxisLayout.range_in_depth()),
         "angular_map.png": AngularMapVisualizer(gate_kx=0, gate_ky=0, gate_half=1.5),
         "range_profiles.png": RangeProfileVisualizer(
             cells=[(0, 0, "ячейка цели (в гейте)"),

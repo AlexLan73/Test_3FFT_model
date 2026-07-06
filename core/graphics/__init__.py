@@ -1,10 +1,16 @@
-from .visualizer import Visualizer
-from .cube_scatter import CubeScatterVisualizer
 from .angular_map import AngularMapVisualizer
+from .cube_scatter import CubeScatterVisualizer
+from .layout import AxisLayout
 from .range_profile import RangeProfileVisualizer
+from .sampling import CubeSampler
+from .visualizer import Visualizer
 from .writer import FigureWriter
+
+# ⚠️ plotly-имена (InteractiveVisualizer/InteractiveCubeVisualizer/HtmlWriter) сюда НЕ
+# реэкспортируются -- см. .claude/rules/06-graphics.md (F3): матплотлиб-ветка не должна
+# тянуть plotly. Доступ -- через `core.graphics.interactive`.
 
 __all__ = [
     "Visualizer", "CubeScatterVisualizer", "AngularMapVisualizer",
-    "RangeProfileVisualizer", "FigureWriter",
+    "RangeProfileVisualizer", "FigureWriter", "AxisLayout", "CubeSampler",
 ]
