@@ -10,8 +10,11 @@
 - ✅ **Рефакторинг графики phase1** (2026-07-07) — реализовано Sonnet + ревью Кодо. Все 7 шагов
   зелёные (mypy/ruff/тесты/main/demo). **Готово.** → [`TASK_graphics_refactor_phase1.md`](TASK_graphics_refactor_phase1.md)
 
-## Следующее
+- ✅ **anti-barrage · SubspaceNuller phase1** (2026-07-07) — реализовано Sonnet + ревью Кодо.
+  Угловое подавление barrage −20.3 дБ, цель выживает. **Готово.**
+  → [`TASK_subspace_nuller_phase1.md`](TASK_subspace_nuller_phase1.md)
 
-- 🎯 **anti-barrage · SubspaceNuller** (шаг 1 плана внедрения) — детерминир. угловое подавление
-  (oblique projection) на текущем кубе, GPU-ready на torch. → план: memory `anti-barrage-plan`,
-  спека [`specs/anti_barrage_detection_2026-06-23.md`](../specs/anti_barrage_detection_2026-06-23.md)
+## Следующее (phase2 nuller — по слову Alex)
+
+- 🔧 впайка нуллера в pipeline (опц. preprocessor в контроллере), torch/GPU-бэкенд,
+  настройка порогов; далее CFAR (§7) → Доплер (§5) → 3D-CNN.

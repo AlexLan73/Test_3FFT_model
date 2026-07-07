@@ -11,9 +11,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.test_graphics import GraphicsTests
+from tests.test_nuller import NullerTests
 from tests.test_smoke import SmokeTests
 
-SUITES = [SmokeTests, GraphicsTests]
+SUITES = [SmokeTests, GraphicsTests, NullerTests]
 
 
 def main() -> int:
