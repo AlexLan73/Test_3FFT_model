@@ -4,8 +4,9 @@
 Конкретные классы-источники строит EmitterFactory (см. generators/factory.py).
 """
 from __future__ import annotations
+
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Optional, Sequence
 
 
 @dataclass(frozen=True)
@@ -41,7 +42,7 @@ class BarrageSpec(EmitterSpec):
 @dataclass(frozen=True)
 class HamEmitterSpec(EmitterSpec):
     """Стороннее излучение (радиолюбитель): после дерампа -- размаз по дальности."""
-    chirp_rate: Optional[float] = None   # None -> авто (полный размах по полосе)
+    chirp_rate: float | None = None   # None -> авто (полный размах по полосе)
 
 
 @dataclass(frozen=True)

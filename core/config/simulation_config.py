@@ -1,10 +1,15 @@
 """Корневая конфигурация прогона + готовые сценарии."""
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from .array_config import ArrayConfig, RangeConfig
 from .scene_config import (
-    SceneConfig, TargetSpec, DrfmCombSpec, BarrageSpec, HamEmitterSpec,
+    BarrageSpec,
+    DrfmCombSpec,
+    HamEmitterSpec,
+    SceneConfig,
+    TargetSpec,
     ThermalNoiseSpec,
 )
 

@@ -4,11 +4,20 @@
 данных можно сделать сколько угодно. Single Responsibility: только данные.
 """
 from __future__ import annotations
-from typing import Tuple
+
 import numpy as np
 
-from ...config import (ArrayConfig, RangeConfig, SceneConfig, ThermalNoiseSpec,
-                       TargetSpec, BarrageSpec, DrfmCombSpec, HamEmitterSpec)
+from ...config import (
+    ArrayConfig,
+    BarrageSpec,
+    DrfmCombSpec,
+    EmitterSpec,
+    HamEmitterSpec,
+    RangeConfig,
+    SceneConfig,
+    TargetSpec,
+    ThermalNoiseSpec,
+)
 from ...generators import SceneBuilder, Synthesizer
 from ..base import RadarModel
 from .labels import CLASS_NAMES
@@ -29,8 +38,9 @@ class CubeDatasetGenerator:
         rs = self._rs
         kx, ky = float(rs.uniform(-6, 6)), float(rs.uniform(-6, 6))
         thermal = ThermalNoiseSpec(power=0.02)
+        emitters: tuple[EmitterSpec, ...] = ()
         if name == "empty":
-            emitters = ()
+            pass
         elif name == "target":
             emitters = (TargetSpec(kx=kx, ky=ky, range_bin=float(rs.uniform(4, 40)),
                                    amplitude=float(rs.uniform(0.6, 1.2))),)
@@ -48,14 +58,14 @@ class CubeDatasetGenerator:
             raise ValueError(f"неизвестный класс {name}")
         return SceneConfig(emitters=emitters, thermal=thermal)
 
-    def sample(self, name: str) -> Tuple[np.ndarray, int]:
+    def sample(self, name: str) -> tuple[np.ndarray, int]:
         scene = self._builder.build(self._scene_for(name))
         seed = int(self._rs.integers(0, 2 ** 31))      # своя реализация шума
         raw = Synthesizer(self._array, self._range, seed).build(scene)
         cube = self._model.process(raw).magnitude.astype("float32")
         return cube, CLASS_NAMES.index(name)
 
-    def batch(self, n: int, balanced: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+    def batch(self, n: int, balanced: bool = True) -> tuple[np.ndarray, np.ndarray]:
         xs, ys = [], []
         for i in range(n):
             name = CLASS_NAMES[i % len(CLASS_NAMES)] if balanced \
@@ -63,5 +73,5 @@ class CubeDatasetGenerator:
             cube, label = self.sample(name)
             xs.append(cube)
             ys.append(label)
-        X = np.stack(xs)[:, None]                       # (n, 1, nx, ny, n_fft)
-        return X.astype("float32"), np.asarray(ys, dtype="int64")
+        x_batch = np.stack(xs)[:, None]                 # (n, 1, nx, ny, n_fft)
+        return x_batch.astype("float32"), np.asarray(ys, dtype="int64")

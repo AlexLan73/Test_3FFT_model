@@ -4,12 +4,13 @@
 извне. Контроллер не знает о конкретных источниках/окнах/форматах хранения.
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 from .config import SimulationConfig
+from .data_context import DataContext
 from .generators import SceneBuilder, Synthesizer
 from .models import RadarModel
-from .data_context import DataContext
 
 
 @dataclass

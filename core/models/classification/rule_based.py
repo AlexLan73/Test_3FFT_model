@@ -5,11 +5,12 @@
 (оба заливают дальность) -- это и есть место, где помогает обучаемая сеть.
 """
 from __future__ import annotations
+
 import numpy as np
 
 from ..result import SpectralCube
 from .classifier import CubeClassifier
-from .labels import Classification, CLASS_NAMES
+from .labels import CLASS_NAMES, Classification
 
 
 class RuleBasedClassifier(CubeClassifier):

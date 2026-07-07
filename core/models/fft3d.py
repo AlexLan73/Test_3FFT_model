@@ -1,10 +1,11 @@
 """Пространственно-временна́я 3D-БПФ модель на сетке 16x16xN."""
 from __future__ import annotations
+
 import numpy as np
 
 from ..config import ArrayConfig, RangeConfig
 from .base import RadarModel
-from .result import SpectralCube, Axis
+from .result import Axis, SpectralCube
 from .windows import AxisWindows
 
 

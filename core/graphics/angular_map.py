@@ -1,13 +1,15 @@
 """Угловая карта энергии (интеграл по дальности) с гейтом обзора."""
 from __future__ import annotations
+
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 
-from .visualizer import Visualizer
 from ..models import SpectralCube
+from .visualizer import Visualizer
 
 
 class AngularMapVisualizer(Visualizer):
@@ -20,7 +22,8 @@ class AngularMapVisualizer(Visualizer):
         kx, ky = cube.kx.values, cube.ky.values
         fig, ax = plt.subplots(figsize=(7, 6))
         im = ax.imshow(e.T, origin="lower", cmap="turbo", vmin=-25, vmax=0,
-                       extent=[kx[0], kx[-1] + 1, ky[0], ky[-1] + 1], aspect="equal")
+                       extent=(float(kx[0]), float(kx[-1]) + 1.0, float(ky[0]), float(ky[-1]) + 1.0),
+                       aspect="equal")
         ax.add_patch(Rectangle((self._gx - self._gh, self._gy - self._gh),
                                2 * self._gh, 2 * self._gh, fill=False,
                                ec="r", lw=2))

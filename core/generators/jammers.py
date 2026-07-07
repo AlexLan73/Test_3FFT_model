@@ -1,5 +1,6 @@
 """Источники помех (расширяют SignalSource -- открыты для добавления новых)."""
 from __future__ import annotations
+
 import numpy as np
 
 from .sources import SignalSource, _SteeredTone

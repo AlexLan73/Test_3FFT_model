@@ -15,13 +15,16 @@ from ..layout import AxisLayout
 from ..sampling import CubeSampler
 from .interactive_visualizer import InteractiveVisualizer
 
+# B008: вызов classmethod в дефолте аргумента → module-level синглтон (frozen dataclass, безопасно).
+_LAYOUT_DEPTH: AxisLayout = AxisLayout.range_in_depth()
+
 
 class InteractiveCubeVisualizer(InteractiveVisualizer):
     """layout -- раскладка осей; thresholds -- набор порогов (дБ) для слайдера;
     default_db -- активный кадр при открытии (если не входит в thresholds --
     берётся ближайший, F6: иначе thresholds.index(default_db) кидает ValueError)."""
 
-    def __init__(self, layout: AxisLayout = AxisLayout.range_in_depth(),
+    def __init__(self, layout: AxisLayout = _LAYOUT_DEPTH,
                  thresholds: Iterable[float] = range(-40, -5, 2),
                  default_db: float = -22) -> None:
         self._layout = layout

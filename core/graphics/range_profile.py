@@ -1,19 +1,22 @@
 """Дальностные профили выбранных угловых ячеек (наложение)."""
 from __future__ import annotations
-from typing import Sequence, Tuple
+
+from collections.abc import Sequence
+
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
-from .visualizer import Visualizer
 from ..models import SpectralCube
+from .visualizer import Visualizer
 
 
 class RangeProfileVisualizer(Visualizer):
     """cells: список (kx, ky, подпись) угловых ячеек для сравнения профилей."""
 
-    def __init__(self, cells: Sequence[Tuple[float, float, str]],
+    def __init__(self, cells: Sequence[tuple[float, float, str]],
                  range_limit: int | None = None):
         self._cells = cells
         self._rmax = range_limit

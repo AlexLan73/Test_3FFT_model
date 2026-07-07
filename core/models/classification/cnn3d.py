@@ -4,11 +4,12 @@ torch импортируется ЛЕНИВО -- пакет работает и 
 классификатор не зависит от torch). Сеть резидентна в VRAM, инференс батчем.
 """
 from __future__ import annotations
+
 import numpy as np
 
 from ..result import SpectralCube
 from .classifier import CubeClassifier
-from .labels import Classification, CLASS_NAMES
+from .labels import CLASS_NAMES, Classification
 
 
 def build_cnn3d(n_classes: int = len(CLASS_NAMES), in_ch: int = 1, width: int = 8):
@@ -47,6 +48,6 @@ class Cnn3DClassifier(CubeClassifier):
         ix, iy = np.unravel_index(int(np.argmax(energy)), energy.shape)
         return Classification(
             label, CLASS_NAMES[label], float(probs[label]),
-            {n: float(p) for n, p in zip(CLASS_NAMES, probs)},
+            {n: float(p) for n, p in zip(CLASS_NAMES, probs, strict=True)},
             (float(cube.kx.values[ix]), float(cube.ky.values[iy])),
         )

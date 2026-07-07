@@ -49,6 +49,6 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RET"]
 ignore = ["E501"]   # длинные строки разрешены для коммент-блоков
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = false
 ignore_missing_imports = true

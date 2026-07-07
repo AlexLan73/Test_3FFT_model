@@ -1,5 +1,6 @@
 """Геометрия решётки и параметры дальностной оси (Value Objects)."""
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 

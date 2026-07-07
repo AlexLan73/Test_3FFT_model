@@ -1,11 +1,16 @@
-from .windows import (WindowFunction, RectWindow, HannWindow, HammingWindow,
-                      AxisWindows)
-from .result import Axis, SpectralCube
 from .base import RadarModel
+from .classification import (
+                      CLASS_NAMES,
+                      Classification,
+                      Cnn3DClassifier,
+                      CubeClassifier,
+                      CubeDatasetGenerator,
+                      RuleBasedClassifier,
+                      build_cnn3d,
+)
 from .fft3d import Fft3DModel
-from .classification import (CLASS_NAMES, Classification, CubeClassifier,
-                             RuleBasedClassifier, build_cnn3d, Cnn3DClassifier,
-                             CubeDatasetGenerator)
+from .result import Axis, SpectralCube
+from .windows import AxisWindows, HammingWindow, HannWindow, RectWindow, WindowFunction
 
 __all__ = [
     "WindowFunction", "RectWindow", "HannWindow", "HammingWindow", "AxisWindows",

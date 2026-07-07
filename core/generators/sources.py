@@ -1,6 +1,8 @@
 """Абстракция источника сигнала и базовые источники (Strategy + Composite leaf)."""
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
+
 import numpy as np
 
 from ..config import RangeConfig

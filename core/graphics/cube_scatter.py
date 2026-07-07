@@ -17,10 +17,13 @@ from .layout import AxisLayout
 from .sampling import CubeSampler
 from .visualizer import Visualizer
 
+# B008: вызов classmethod в дефолте аргумента → module-level синглтон (frozen dataclass, безопасно).
+_LAYOUT_VERTICAL: AxisLayout = AxisLayout.range_vertical()
+
 
 class CubeScatterVisualizer(Visualizer):
     def __init__(self, threshold_db: float = -20.0, range_limit: int | None = None,
-                 layout: AxisLayout = AxisLayout.range_vertical()) -> None:
+                 layout: AxisLayout = _LAYOUT_VERTICAL) -> None:
         self._thr = threshold_db
         self._rmax = range_limit
         self._layout = layout

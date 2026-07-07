@@ -1,5 +1,6 @@
 """Фасад доступа к данным: единая точка входа для load/save."""
 from __future__ import annotations
+
 import numpy as np
 
 from .repository import CubeRepository, NpyCubeRepository

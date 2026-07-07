@@ -1,21 +1,23 @@
 """Сцена (Composite) + строитель сцены + синтезатор куба данных."""
 from __future__ import annotations
-from typing import List, Iterable
+
+from collections.abc import Iterable
+
 import numpy as np
 
-from ..config import SceneConfig, ArrayConfig, RangeConfig
+from ..config import ArrayConfig, RangeConfig, SceneConfig
+from .factory import EmitterFactory
 from .grid import ArrayGrid
 from .sources import SignalSource, ThermalNoise
-from .factory import EmitterFactory
 
 
 class Scene(SignalSource):
     """Композит источников: вклад сцены = сумма вкладов составляющих."""
 
     def __init__(self, sources: Iterable[SignalSource] | None = None):
-        self._sources: List[SignalSource] = list(sources or [])
+        self._sources: list[SignalSource] = list(sources or [])
 
-    def add(self, source: SignalSource) -> "Scene":
+    def add(self, source: SignalSource) -> Scene:
         self._sources.append(source)
         return self
 

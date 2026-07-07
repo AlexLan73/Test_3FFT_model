@@ -4,6 +4,7 @@
 этот выносит по нему решение. Любая реализация взаимозаменяема (LSP).
 """
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 
 from ..result import SpectralCube

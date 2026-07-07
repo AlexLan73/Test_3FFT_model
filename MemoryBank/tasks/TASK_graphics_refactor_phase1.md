@@ -1,7 +1,8 @@
 # 🧩 TASK — graphics_refactor · phase1
 
 > **Спека:** [`specs/graphics_refactor_2026-07-06.md`](../specs/graphics_refactor_2026-07-06.md)
-> **Статус:** ✅ ОТРЕВЬЮВАН (Кодо, 2026-07-06) → готов к реализации Sonnet → проверка Кодо.
+> **Статус:** ✅✅ РЕАЛИЗОВАНО + ОТРЕВЬЮВАНО (Sonnet → Кодо, 2026-07-07). Все 7 шагов зелёные:
+> `mypy core/` 0 ошибок, `ruff check core/` чист, `tests/all_test.py` 10 ok, `main.py`/`demo_interactive.py` рисуют PNG/HTML. plotly не течёт в статик-ветку. mypy 2.1.0 доустановлен, `[tool.mypy] python_version` → 3.12.
 > Правки по ревью F1–F7 внесены в шаги 1–6 (пометки ⚠️/F#).
 > **Ветка абстракций:** matplotlib (есть) + **plotly параллельно** (новое, не смешивать).
 > **Критично:** 🚫 pytest (только `common.runner.TestRunner`) · 🚫 писать в `.claude/worktrees/**`.

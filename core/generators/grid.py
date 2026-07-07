@@ -1,6 +1,8 @@
 """Геометрия решётки и расчёт фазового вектора наведения."""
 from __future__ import annotations
+
 from dataclasses import dataclass
+
 import numpy as np
 
 from ..config import ArrayConfig
@@ -13,7 +15,7 @@ class ArrayGrid:
     ny: int
 
     @classmethod
-    def from_config(cls, cfg: ArrayConfig) -> "ArrayGrid":
+    def from_config(cls, cfg: ArrayConfig) -> ArrayGrid:
         return cls(cfg.nx, cfg.ny)
 
     def steering(self, kx: float, ky: float) -> np.ndarray:

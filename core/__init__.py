@@ -8,6 +8,6 @@
     data_context/  -- загрузка/выгрузка данных
     controller.py  -- координатор прогона
 """
-from .controller import SimulationController, ProcessingOutcome
+from .controller import ProcessingOutcome, SimulationController
 
 __all__ = ["SimulationController", "ProcessingOutcome"]

@@ -1,6 +1,8 @@
 """Результат обработки -- неизменяемый Value Object со своей семантикой осей."""
 from __future__ import annotations
+
 from dataclasses import dataclass
+
 import numpy as np
 
 

@@ -1,6 +1,8 @@
 """Базовая модель РЛС-обработки (Strategy для приложения, Template Method внутри)."""
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
+
 import numpy as np
 
 from .result import SpectralCube

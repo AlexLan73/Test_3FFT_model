@@ -1,6 +1,8 @@
 """Запись фигур на диск -- Pure Fabrication (IO отделён от рендера)."""
 from __future__ import annotations
+
 import os
+
 from matplotlib.figure import Figure
 
 
