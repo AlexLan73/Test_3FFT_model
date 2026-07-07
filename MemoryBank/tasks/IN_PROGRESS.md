@@ -18,6 +18,10 @@
   Ревью Кодо вскрыло self-masking, фикс `n_guard=4`+localmax. Цель детектируется. **Готово.**
   → [`TASK_cfar_phase1.md`](TASK_cfar_phase1.md)
 
+- ✅ **SNR-эстиматор phase1** (2026-07-07) — порт из GPUWorkLib: `core/snr/` (спектр CA-CFAR +
+  статистика), 3 графика, torch-free. Инструкция `Doc/snr_usage.md`. **Готово.**
+  → [`TASK_snr_phase1.md`](TASK_snr_phase1.md)
+
 ## Следующее
 
 - 🎵 **Доплер (§5)** — тяжёлый torch-этап: +ось импульсов (RangeConfig+n_pulses), скорость цели,

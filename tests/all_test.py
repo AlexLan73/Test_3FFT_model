@@ -14,8 +14,9 @@ from tests.test_cfar import CfarTests
 from tests.test_graphics import GraphicsTests
 from tests.test_nuller import NullerTests
 from tests.test_smoke import SmokeTests
+from tests.test_snr import SnrTests
 
-SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests]
+SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests]
 
 
 def main() -> int:
