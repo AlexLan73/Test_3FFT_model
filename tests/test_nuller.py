@@ -15,11 +15,10 @@ if str(_REPO) not in sys.path:
 import numpy as np  # noqa: E402
 
 from common.runner import AssertionGroup, TestRunner  # noqa: E402
-from core.config import ArrayConfig, RangeConfig, SceneConfig, TargetSpec, BarrageSpec  # noqa: E402
+from core.config import ArrayConfig, BarrageSpec, RangeConfig, SceneConfig, TargetSpec  # noqa: E402
 from core.config.scene_config import ThermalNoiseSpec  # noqa: E402
 from core.generators.scene import SceneBuilder, Synthesizer  # noqa: E402
 from core.models.anti_barrage import SubspaceNuller  # noqa: E402
-
 
 # ── Вспомогательные фабрики сцен ──────────────────────────────────────────────
 
@@ -104,14 +103,14 @@ class NullerTests(TestRunner):
         grid = ArrayGrid(16, 16)
         a_t = grid.steering(2.0, 0.0).ravel()  # (256,)
 
-        nx, ny, K = raw.shape
-        M = nx * ny
-        X_raw = raw.reshape(M, K).astype(np.complex128)
-        X_cln = cleaned.reshape(M, K).astype(np.complex128)
+        nx, ny, k_snap = raw.shape
+        m_elem = nx * ny
+        x_raw = raw.reshape(m_elem, k_snap).astype(np.complex128)
+        x_cln = cleaned.reshape(m_elem, k_snap).astype(np.complex128)
 
         # Проекция сигнала на направление цели (норма по всем K)
-        proj_before = float(np.linalg.norm(a_t.conj() @ X_raw))
-        proj_after  = float(np.linalg.norm(a_t.conj() @ X_cln))
+        proj_before = float(np.linalg.norm(a_t.conj() @ x_raw))
+        proj_after  = float(np.linalg.norm(a_t.conj() @ x_cln))
 
         # Разница в проекции не должна быть больше 15 дБ (утечка минимальна)
         proj_loss_db = 20.0 * np.log10(max(proj_before, 1e-30) / max(proj_after, 1e-30))
@@ -124,25 +123,25 @@ class NullerTests(TestRunner):
         g = AssertionGroup("nuller.projector_idempotent")
 
         raw = _barrage_raw(kx=-4.0, power=6.0)
-        P_perp, E_J = self.nuller.decompose(raw)
+        p_perp, e_jam = self.nuller.decompose(raw)
 
         # P⊥² ≈ P⊥
-        P2 = P_perp @ P_perp
-        err_idem = float(np.linalg.norm(P2 - P_perp, "fro"))
-        ref_norm  = float(np.linalg.norm(P_perp, "fro"))
+        p_sq = p_perp @ p_perp
+        err_idem = float(np.linalg.norm(p_sq - p_perp, "fro"))
+        ref_norm  = float(np.linalg.norm(p_perp, "fro"))
         rel_idem  = err_idem / max(ref_norm, 1e-30)
         g.add(rel_idem < 1e-8,
               f"P⊥² ≈ P⊥: относит. ошибка {rel_idem:.2e} (должна быть < 1e-8)")
 
         # P⊥ @ E_J ≈ 0
-        residual = P_perp @ E_J
+        residual = p_perp @ e_jam
         err_null  = float(np.linalg.norm(residual, "fro"))
-        rel_null  = err_null / max(float(np.linalg.norm(E_J, "fro")), 1e-30)
+        rel_null  = err_null / max(float(np.linalg.norm(e_jam, "fro")), 1e-30)
         g.add(rel_null < 1e-8,
               f"P⊥ @ E_J ≈ 0: относит. ошибка {rel_null:.2e} (должна быть < 1e-8)")
 
         # Симметрия/эрмитовость P⊥
-        err_herm = float(np.linalg.norm(P_perp - P_perp.conj().T, "fro"))
+        err_herm = float(np.linalg.norm(p_perp - p_perp.conj().T, "fro"))
         g.add(err_herm < 1e-10,
               f"P⊥ должна быть эрмитовой: ошибка {err_herm:.2e}")
         return g

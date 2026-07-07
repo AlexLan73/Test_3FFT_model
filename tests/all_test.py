@@ -10,11 +10,12 @@ from pathlib import Path
 # Чтобы работала и форма `python tests/all_test.py`, и `python -m tests.all_test`.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.test_cfar import CfarTests
 from tests.test_graphics import GraphicsTests
 from tests.test_nuller import NullerTests
 from tests.test_smoke import SmokeTests
 
-SUITES = [SmokeTests, GraphicsTests, NullerTests]
+SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests]
 
 
 def main() -> int:

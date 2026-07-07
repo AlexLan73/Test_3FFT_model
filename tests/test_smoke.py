@@ -11,8 +11,7 @@ class SmokeTests(TestRunner):
 
     def setup(self) -> None:
         from core.config import default_scenario
-        from core.models import (AxisWindows, Fft3DModel, HannWindow,
-                                 RuleBasedClassifier)
+        from core.models import AxisWindows, Fft3DModel, HannWindow, RuleBasedClassifier
 
         self.cfg = default_scenario()
         self.model = Fft3DModel(

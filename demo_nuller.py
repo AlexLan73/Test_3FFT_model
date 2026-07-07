@@ -13,13 +13,12 @@ from __future__ import annotations
 
 import numpy as np
 
-from core.config import ArrayConfig, RangeConfig, SceneConfig, TargetSpec, BarrageSpec
+from core.config import ArrayConfig, BarrageSpec, RangeConfig, SceneConfig, TargetSpec
 from core.config.scene_config import ThermalNoiseSpec
 from core.generators.scene import SceneBuilder, Synthesizer
-from core.models import Fft3DModel, AxisWindows, HannWindow
-from core.models.anti_barrage import SubspaceNuller
 from core.graphics import AngularMapVisualizer, FigureWriter
-
+from core.models import AxisWindows, Fft3DModel, HannWindow
+from core.models.anti_barrage import SubspaceNuller
 
 # ── Параметры сцены ────────────────────────────────────────────────────────────
 
@@ -49,8 +48,7 @@ TARGET_ONLY = SceneConfig(
 def angular_energy_db(raw: np.ndarray, model: Fft3DModel) -> np.ndarray:
     """Угловая карта (nx, ny) в дБ, нормированная по максимуму."""
     cube = model.process(raw)
-    e = cube.angular_energy_db()
-    return e
+    return cube.angular_energy_db()
 
 
 def peak_db_at(raw: np.ndarray, model: Fft3DModel, kx: int, ky: int) -> float:
@@ -86,7 +84,7 @@ def main() -> None:
     print("═" * 60)
     print("  SubspaceNuller · demo  (target kx=+2, barrage kx=-4)")
     print("═" * 60)
-    print(f"  NullerReport (raw cube):")
+    print("  NullerReport (raw cube):")
     print(f"    λ₁/σ_n²   = {rep.lambda_ratio:.1f}")
     print(f"    occupancy = {rep.occupancy:.3f}")
     print(f"    is_barrage= {rep.is_barrage}")
