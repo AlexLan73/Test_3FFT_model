@@ -252,3 +252,6 @@ MemoryBank/.mcp_memory.json.bak
 # --- ОС ---
 .DS_Store
 Thumbs.db
+
+# graphify AST tool cache
+graphify-out/
