@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ФИГ.1 — Блок-схема устройства (позиции 1-20). РЕДАКТИРУЕМЫЙ ВЕКТОР.
+  Связи взяты из blocksch_mermaid.md (редакция Алекса).
+
+  === КАК РЕДАКТИРОВАТЬ ===
+  1) ПЕРЕСТАВИТЬ КВАДРАТ:  <rect x=".." y=".." width="100" height="54"/> + <text>.
+     Текст = центр блока:  text.x = rect.x + 50 ;  text.y = rect.y + 34.
+  2) ЛИНИЯ:  <polyline points="x1,y1 x2,y2 x3,y3 ..."/>
+     ПРАВИЛО: у соседних точек совпадает ЛИБО x, ЛИБО y  =>  все углы строго 90°.
+  3) СТРЕЛКА: на конце  marker-end="url(#a)" ; на обоих концах  + marker-start="url(#a)".
+     Без стрелки — убрать marker-end.
+  4) ВЕТВЛЕНИЕ (одна линия питает несколько блоков): <circle class="j" r="4"/> на изломе.
+     Пересечение БЕЗ точки = линии НЕ соединены (ГОСТ 2.721).
+  5) ПОДПИСЬ ЛИНИИ: <text class="e" x=".." y="..">..</text> — рядом с линией, не поверх.
+
+  СЕТКА:  x = 40, 200, 360, 520, 680, 840, 1000, 1160, 1320
+          y = 30, 130, 240, 360, 470, 615
+  ШИНЫ:   x=340 — управление от блока 4 ;  x=478/490 — раздача данных от блока 3
+          x=1370/1450/1480 — возвраты в блок 4
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1560 1080" width="1560" height="1080" font-family="Arial, Helvetica, sans-serif">
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 z" fill="#000"/>
+    </marker>
+  </defs>
+  <style>
+    rect.b   { fill:#fff; stroke:#000; stroke-width:2; }
+    text.n   { font-size:24px; text-anchor:middle; }
+    polyline { fill:none; stroke:#000; stroke-width:1.6; }
+    circle.j { fill:#000; }
+    text.e   { font-size:14px; font-style:italic; }
+    text.lg  { font-size:15px; }
+    text.cap { font-size:18px; font-weight:bold; }
+  </style>
+
+  <!-- ================== БЛОКИ (в рамке только номер) ================== -->
+  <rect class="b" x="40"   y="30"  width="100" height="54" rx="14"/><text class="n" x="90" y="64" font-size="17">АФАР</text>
+  <rect class="b" x="200"  y="30"  width="100" height="54"/><text class="n" x="250"  y="64">2</text>
+  <rect class="b" x="360"  y="30"  width="100" height="54"/><text class="n" x="410"  y="64">3</text>
+
+  <rect class="b" x="520"  y="30"  width="100" height="54"/><text class="n" x="570"  y="64">5</text>
+  <rect class="b" x="680"  y="30"  width="100" height="54"/><text class="n" x="730"  y="64">8</text>
+  <rect class="b" x="840"  y="30"  width="100" height="54"/><text class="n" x="890"  y="64">9</text>
+  <rect class="b" x="1000" y="30"  width="100" height="54"/><text class="n" x="1050" y="64">10</text>
+  <rect class="b" x="1160" y="30"  width="100" height="54"/><text class="n" x="1210" y="64">13</text>
+
+  <rect class="b" x="520"  y="130" width="100" height="54"/><text class="n" x="570"  y="164">6</text>
+  <rect class="b" x="680"  y="130" width="100" height="54"/><text class="n" x="730"  y="164">11</text>
+  <rect class="b" x="840"  y="130" width="100" height="54"/><text class="n" x="890"  y="164">12</text>
+  <rect class="b" x="1160" y="130" width="100" height="54"/><text class="n" x="1210" y="164">14</text>
+
+  <rect class="b" x="520"  y="240" width="100" height="54"/><text class="n" x="570"  y="274">7</text>
+
+  <rect class="b" x="1000" y="360" width="100" height="54"/><text class="n" x="1050" y="394">18</text>
+  <rect class="b" x="1160" y="360" width="100" height="54"/><text class="n" x="1210" y="394">19</text>
+  <rect class="b" x="1320" y="360" width="100" height="54"/><text class="n" x="1370" y="394">20</text>
+
+  <rect class="b" x="520"  y="470" width="100" height="54"/><text class="n" x="570"  y="504">15</text>
+  <rect class="b" x="680"  y="470" width="100" height="54"/><text class="n" x="730"  y="504">16</text>
+  <rect class="b" x="840"  y="470" width="100" height="54"/><text class="n" x="890"  y="504">17</text>
+
+  <rect class="b" x="200"  y="615" width="100" height="54"/><text class="n" x="250"  y="649">1</text>
+  <rect class="b" x="400"  y="615" width="100" height="54"/><text class="n" x="450"  y="649">4</text>
+
+  <!-- ================== СВЯЗИ (только 90°) ================== -->
+
+  <!-- АФАР -> 2 -> 3 -->
+  <polyline points="140,57 200,57" marker-end="url(#a)"/>
+  <polyline points="300,57 360,57" marker-end="url(#a)"/>
+
+  <!-- 1 -> 2 : тип сигнала, параметры, время воздействия -->
+  <polyline points="250,615 250,84" marker-end="url(#a)"/>
+  <text class="e" x="258" y="360">тип сигнала,</text>
+  <text class="e" x="258" y="378">параметры</text>
+
+  <!-- 3 -> 5 / 6 / 7 : раздача данных по типу сигнала (вложенные дорожки) -->
+  <polyline points="460,57 520,57" marker-end="url(#a)"/>
+  <text class="e" x="470" y="48">ЛЧМ</text>
+  <polyline points="460,70 490,70 490,157 520,157" marker-end="url(#a)"/>
+  <text class="e" x="496" y="120">АМ</text>
+  <polyline points="460,76 478,76 478,267 520,267" marker-end="url(#a)"/>
+  <text class="e" x="484" y="240">ФМ</text>
+
+  <!-- Тракт ЛЧМ: 5 -> 8 -> 9 -> 10 -->
+  <polyline points="620,57 680,57"  marker-end="url(#a)"/>
+  <polyline points="780,57 840,57"  marker-end="url(#a)"/>
+  <polyline points="940,57 1000,57" marker-end="url(#a)"/>
+  <!-- Тракт АМ: 6 -> 11 -> 12 -->
+  <polyline points="620,157 680,157" marker-end="url(#a)"/>
+  <polyline points="780,157 840,157" marker-end="url(#a)"/>
+  <!-- Опоры ФМ: 15 -> 16 -> 17 -->
+  <polyline points="620,497 680,497" marker-end="url(#a)"/>
+  <polyline points="780,497 840,497" marker-end="url(#a)"/>
+
+  <!-- 7 -> 18 (спектр принятого) ; 17 -> 18 (спектр опор) -->
+  <polyline points="620,267 960,267 960,375 1000,375" marker-end="url(#a)"/>
+  <text class="e" x="700" y="258">спектр принятого сигнала</text>
+  <polyline points="940,497 970,497 970,395 1000,395" marker-end="url(#a)"/>
+  <text class="e" x="700" y="462">сопряжённые опоры (спектр)</text>
+  <!-- 18 -> 19 -> 20 -->
+  <polyline points="1100,387 1160,387" marker-end="url(#a)"/>
+  <polyline points="1260,387 1320,387" marker-end="url(#a)"/>
+
+  <!-- ШИНА ТОКЕНОВ: 10 и 12 -> 13 и 14 -->
+  <polyline points="1100,57 1160,57"  marker-end="url(#a)"/>
+  <polyline points="940,157 1160,157" marker-end="url(#a)"/>
+  <polyline points="1130,57 1130,157"/>
+  <circle class="j" cx="1130" cy="57"  r="4"/>
+  <circle class="j" cx="1130" cy="157" r="4"/>
+  <text class="e" x="960" y="148">матрица токенов</text>
+  <text class="e" x="1136" y="112">трудные</text>
+
+  <!-- ВОЗВРАТЫ В БЛОК 4 : 20 -> 4, 14 -> 4, 13 -> 4 (вложенные дорожки) -->
+  <polyline points="1370,414 1370,628 500,628" marker-end="url(#a)"/>
+  <polyline points="1260,157 1450,157 1450,642 500,642" marker-end="url(#a)"/>
+  <polyline points="1260,57 1480,57 1480,656 500,656" marker-end="url(#a)"/>
+  <text class="e" x="560" y="620">результат: углы, дальность, метка «истинная / ложная»</text>
+
+  <!-- 4 <-> 1 : матрица токенов / команды -->
+  <polyline points="400,642 300,642" marker-end="url(#a)" marker-start="url(#a)"/>
+  <text class="e" x="250" y="700">матрица токенов / команды</text>
+
+  <!-- ШИНА УПРАВЛЕНИЯ от блока 4 : x=340 -> блоки 5, 6, 7, 15 -->
+  <polyline points="430,615 430,580 340,580 340,15 570,15 570,30" marker-end="url(#a)"/>
+  <polyline points="340,170 520,170" marker-end="url(#a)"/>
+  <polyline points="340,280 520,280" marker-end="url(#a)"/>
+  <polyline points="340,497 520,497" marker-end="url(#a)"/>
+  <circle class="j" cx="340" cy="170" r="4"/>
+  <circle class="j" cx="340" cy="280" r="4"/>
+  <circle class="j" cx="340" cy="497" r="4"/>
+  <text class="e" x="348" y="435">управление потоком и алгоритмами;</text>
+  <text class="e" x="348" y="453">формирование опор ФМ-m (блок 15)</text>
+
+  <!-- ================== ЛЕГЕНДА ================== -->
+  <text class="cap" x="40" y="760">Фиг. 1 — Блок-схема устройства</text>
+  <text class="lg" x="40"  y="794">1 — блок управления системой</text>
+  <text class="lg" x="40"  y="818">2 — радиочастотный тракт (ЦАП/АЦП, децимация, дечирпирование)</text>
+  <text class="lg" x="40"  y="842">3 — блок записи данных на графический процессор (массив k·l)</text>
+  <text class="lg" x="40"  y="866">4 — блок управления потоком данных и алгоритмами</text>
+  <text class="lg" x="40"  y="890">5 — интерфейсный блок ЛЧМ (дальностное преобразование Фурье)</text>
+  <text class="lg" x="40"  y="914">6 — интерфейсный блок АМ (формирование объёма с перекрытием)</text>
+  <text class="lg" x="40"  y="938">7 — интерфейсный блок ФМ (спектр принятого сигнала)</text>
+  <text class="lg" x="40"  y="962">8 — блок формирования апертуры 16×16</text>
+  <text class="lg" x="40"  y="986">9 — блок углового двумерного преобразования Фурье</text>
+  <text class="lg" x="40"  y="1010">10 — блок токенизации (тракт ЛЧМ)</text>
+
+  <text class="lg" x="800" y="794">11 — блок объёмного трёхмерного преобразования Фурье</text>
+  <text class="lg" x="800" y="818">12 — блок токенизации (тракт АМ)</text>
+  <text class="lg" x="800" y="842">13 — причинностный арбитр (правило переднего края, τ ≥ 0)</text>
+  <text class="lg" x="800" y="866">14 — блок объёмного добора (рекуррентная нейронная сеть)</text>
+  <text class="lg" x="800" y="890">15 — блок формирования сопряжённого опорного m-кода (2⁸…2²⁰)</text>
+  <text class="lg" x="800" y="914">16 — блок формирования векторов циклических сдвигов</text>
+  <text class="lg" x="800" y="938">17 — блок вычисления спектра опор</text>
+  <text class="lg" x="800" y="962">18 — блок сопряжённого перемножения</text>
+  <text class="lg" x="800" y="986">19 — блок обратного преобразования Фурье</text>
+  <text class="lg" x="800" y="1010">20 — блок токенизации выхода коррелятора</text>
+</svg>
