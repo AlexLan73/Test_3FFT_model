@@ -26,6 +26,14 @@ from .base import Waveform
 from .cw import CwWaveform
 from .field import Modulation
 from .fm import FmInterferenceWaveform
+from .jammers_rf import (
+    BarrageRfJammer,
+    DrfmRepeaterJammer,
+    ImpulsiveArcJammer,
+    IndustrialCwJammer,
+    SmspJammer,
+    VfdHarmonicJammer,
+)
 from .lfm import LfmWaveform
 from .phase_code import PhaseCodeWaveform
 
@@ -54,3 +62,9 @@ class WaveformFactory:
         self.register(Modulation.AM, AmWaveform)
         self.register(Modulation.PHASE_CODE, PhaseCodeWaveform)
         self.register(Modulation.FM_INTERFERENCE, FmInterferenceWaveform)
+        self.register(Modulation.BARRAGE, BarrageRfJammer)
+        self.register(Modulation.SMSP, SmspJammer)
+        self.register(Modulation.DRFM_REPEATER, DrfmRepeaterJammer)
+        self.register(Modulation.INDUSTRIAL_CW, IndustrialCwJammer)
+        self.register(Modulation.IMPULSIVE_ARC, ImpulsiveArcJammer)
+        self.register(Modulation.VFD_HARMONIC, VfdHarmonicJammer)

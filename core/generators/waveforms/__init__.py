@@ -3,6 +3,8 @@
 P0: `SignalField`/`Modulation`/`AxisKind`, `Waveform`/`WaveformSpec`, `TimeWindow`.
 P1: конкретные волны (`CwWaveform`/`LfmWaveform`/`AmWaveform`) + `WaveformFactory`.
 P4: `PhaseCodeWaveform`(ФМн) + `FmInterferenceWaveform`(ЧМ-помеха) + `mseq.m_sequence`.
+P5: помехи патента + промышленные (`jammers_rf.py`) — `BarrageRfJammer`/`SmspJammer`/
+`DrfmRepeaterJammer`/`IndustrialCwJammer`/`ImpulsiveArcJammer`/`VfdHarmonicJammer`.
 `GenBackend` — настоящий протокол теперь в `core.generators.backends` (P1); реэкспорт
 здесь оставлен для обратной совместимости с P0-импортами.
 """
@@ -15,6 +17,14 @@ from .cw import CwWaveform
 from .factory import WaveformFactory
 from .field import AxisKind, Modulation, SignalField
 from .fm import FmInterferenceWaveform
+from .jammers_rf import (
+    BarrageRfJammer,
+    DrfmRepeaterJammer,
+    ImpulsiveArcJammer,
+    IndustrialCwJammer,
+    SmspJammer,
+    VfdHarmonicJammer,
+)
 from .lfm import LfmWaveform
 from .mseq import DEFAULT_DEGREE, m_sequence, m_sequence_pow2
 from .phase_code import PhaseCodeWaveform
@@ -25,6 +35,8 @@ __all__ = [
     "Waveform", "WaveformSpec", "GenBackend",
     "TimeWindow",
     "CwWaveform", "LfmWaveform", "AmWaveform", "PhaseCodeWaveform", "FmInterferenceWaveform",
+    "BarrageRfJammer", "SmspJammer", "DrfmRepeaterJammer",
+    "IndustrialCwJammer", "ImpulsiveArcJammer", "VfdHarmonicJammer",
     "WaveformFactory",
     "m_sequence", "m_sequence_pow2", "DEFAULT_DEGREE",
 ]

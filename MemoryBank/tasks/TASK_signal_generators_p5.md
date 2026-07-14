@@ -4,9 +4,10 @@
 > **Спека:** [`specs/signal_generators_2026-07-13.md`](../specs/signal_generators_2026-07-13.md) (§3, §3.1, §5)
 > + [`specs/industrial_interference_classification.md`](../specs/industrial_interference_classification.md) (§4-6).
 > **Зависит от:** P0+P1+P2+P4 (`SignalField`, `Waveform`, `render_pipeline`, `WaveformFactory`, `reference`, `mseq`).
-> **Статус:** ⬜ НЕ НАЧАТО · 🔍 **ревью Кодо 2026-07-14** (сверено с кодом/спеками): J1 (калибровка через
-> `spec.snr_db`, не плодить `jnr_db`), J2 (SMSP тест по дечирпу), J3 (частоты в baseband `<fs/2`),
-> J4 (barrage когерентный), J5 (IMP_ARC = `δ*h`), J6 (α-stable комплексный), J7 (тепловой шум в сцене — 1×).
+> **Статус:** ✅ ПРИНЯТО (ревью Кодо 2026-07-14). 6 помех: python3.13 47 ok/0 fail, .venv 39/8skip.
+> Barrage rank-1 (J4) ✅, IMP_ARC kurtosis=260/разреж.1.1% (J5/J6) ✅, DRFM 4 пика на τ_i, SMSP размаз
+> после дечирпа (J2), INT_CW пик 3.48МГц, VFD гребёнка n·f_sw. J1(snr_db)/J3(Найквист)/J7 в коде верны.
+> ruff/mypy чисто, старые целы. Визуал `p5_jammers/` — все 6 сигнатур. (ревью-правки Alex J1-J7 — отработали)
 >
 > 🚨 🚫 pytest (только `TestRunner`+`AssertionGroup`+`SkipTest`) · 🚫 `.claude/worktrees/**` · существующее НЕ ломать.
 

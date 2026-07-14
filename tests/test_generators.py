@@ -13,6 +13,7 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 import numpy as np  # noqa: E402
+from scipy.stats import kurtosis  # noqa: E402
 
 from common.runner import AssertionGroup, SkipTest, TestRunner  # noqa: E402
 from common.validators import DataValidator  # noqa: E402
@@ -23,13 +24,19 @@ from core.generators.backends import NumpyBackend  # noqa: E402
 from core.generators.waveforms import (  # noqa: E402
     AmWaveform,
     AxisKind,
+    BarrageRfJammer,
     CwWaveform,
+    DrfmRepeaterJammer,
     FmInterferenceWaveform,
+    ImpulsiveArcJammer,
+    IndustrialCwJammer,
     LfmWaveform,
     Modulation,
     PhaseCodeWaveform,
     SignalField,
+    SmspJammer,
     TimeWindow,
+    VfdHarmonicJammer,
     WaveformFactory,
     WaveformSpec,
     m_sequence,
@@ -54,6 +61,15 @@ _P2_N = 4096
 
 def _make_field(data: np.ndarray, axes: tuple[AxisKind, ...]) -> SignalField:
     return SignalField(data=data, modulation=Modulation.LFM, axes=axes, fs=12e6, carrier_hz=2e6)
+
+
+def _dechirp_numpy(s_rx: np.ndarray, s_ref: np.ndarray) -> np.ndarray:
+    """Дечирп: `s_dc = s_rx * conj(s_ref)` (J2 — тест SMSP по дечирпу, не сырому спектру).
+
+    vendored from DSP-GPU/DSP/Python/heterodyne/heterodyne_base.py:67
+    (`HeterodyneTestBase.dechirp_numpy`) — минимальная формула, без класса/зависимостей.
+    """
+    return (s_rx * np.conj(s_ref)).astype(np.complex64)
 
 
 class GeneratorsTests(TestRunner):
@@ -695,6 +711,220 @@ class GeneratorsTests(TestRunner):
             row = peaks[i, 0, :]
             amax = int(np.argmax(row))
             g.add(amax == d, f"shift d={d}: пик на позиции {amax} (ожидали {d}), val={row[amax]:.1f}")
+        return g
+
+    # ── P5: помехи патент+промышленные (jammers_rf) ──────────────────────────
+
+    def test_p5_factory_dispatch_and_shape(self) -> AssertionGroup:
+        g = AssertionGroup("p5.factory_dispatch_and_shape")
+        factory = WaveformFactory()
+        pairs = [
+            (Modulation.BARRAGE, BarrageRfJammer),
+            (Modulation.SMSP, SmspJammer),
+            (Modulation.DRFM_REPEATER, DrfmRepeaterJammer),
+            (Modulation.INDUSTRIAL_CW, IndustrialCwJammer),
+            (Modulation.IMPULSIVE_ARC, ImpulsiveArcJammer),
+            (Modulation.VFD_HARMONIC, VfdHarmonicJammer),
+        ]
+        backend = NumpyBackend()
+        spec = WaveformSpec(fs=12e6, carrier_hz=2e6, n_samples=2048, fdev_hz=1e6)
+        for modulation, cls in pairs:
+            g.add(isinstance(factory.create(modulation), cls), f"{modulation} -> {cls.__name__}")
+            field = cls().render(backend, spec, np.random.default_rng(0))
+            g.add(field.data.shape == (16, 16, 2048),
+                  f"{modulation}: shape (16,16,2048), получено {field.data.shape}")
+            g.add(field.data.dtype == np.complex64, f"{modulation}: dtype complex64")
+            g.add(field.modulation == modulation, f"{modulation}: field.modulation совпадает")
+        return g
+
+    def test_p5_determinism_same_seed(self) -> AssertionGroup:
+        g = AssertionGroup("p5.determinism_same_seed")
+        backend = NumpyBackend()
+        spec = WaveformSpec(fs=12e6, carrier_hz=2e6, n_samples=2048, fdev_hz=1e6)
+        for cls in (BarrageRfJammer, SmspJammer, DrfmRepeaterJammer,
+                    IndustrialCwJammer, ImpulsiveArcJammer, VfdHarmonicJammer):
+            f1 = cls().render(backend, spec, np.random.default_rng(77))
+            f2 = cls().render(backend, spec, np.random.default_rng(77))
+            g.add(np.array_equal(f1.data, f2.data),
+                  f"{cls.__name__}: один seed (R6) -> идентичный результат (побитово)")
+        return g
+
+    def test_barrage_wideband_and_coherent_steering(self) -> AssertionGroup:
+        """J4: barrage — когерентный/направленный (rank-1 через steering), широкополосный."""
+        g = AssertionGroup("p5.barrage_wideband_and_coherent")
+        backend = NumpyBackend()
+        fs, n = 12e6, 4096
+        kx, ky = 3.0, -2.0
+        spec = WaveformSpec(fs=fs, carrier_hz=2e6, n_samples=n, amplitude=2.0,
+                             meta={"kx": kx, "ky": ky, "nx": 16, "ny": 16})
+        field = BarrageRfJammer().render(backend, spec, np.random.default_rng(50))
+
+        sig = field.data[0, 0, :]
+        spectrum = np.abs(np.fft.fft(sig)) ** 2
+        peak_fraction = float(spectrum.max() / spectrum.sum())
+
+        cw_spec = WaveformSpec(fs=fs, carrier_hz=2e6, n_samples=n)
+        cw_field = CwWaveform().render(backend, cw_spec, np.random.default_rng(51))
+        cw_spectrum = np.abs(np.fft.fft(cw_field.data[0, 0, :])) ** 2
+        cw_peak_fraction = float(cw_spectrum.max() / cw_spectrum.sum())
+
+        g.add(peak_fraction < 0.02,
+              f"barrage должен быть широкополосным (равномерный пол), peak_fraction={peak_fraction:.5f}")
+        g.add(peak_fraction < cw_peak_fraction / 20,
+              f"barrage peak_fraction={peak_fraction:.5f} должен быть << CW peak_fraction={cw_peak_fraction:.4f}")
+
+        from core.generators.grid import ArrayGrid
+        steer = ArrayGrid(16, 16).steering(kx, ky)
+        expected_ratio = steer[7, 9] / steer[0, 0]
+        actual_ratio = field.data[7, 9, :] / field.data[0, 0, :]
+        g.add(bool(np.allclose(actual_ratio, expected_ratio, atol=1e-4)),
+              "barrage когерентен по элементам (J4): отношение между элементами = steering, "
+              "не независимый шум на элемент")
+        return g
+
+    def test_smsp_smeared_after_dechirp_vs_matched_lfm(self) -> AssertionGroup:
+        """J2: сырой спектр SMSP и ЛЧМ той же ширины НЕ различает; смотрим ПОСЛЕ дечирпа."""
+        g = AssertionGroup("p5.smsp_smeared_after_dechirp")
+        backend = NumpyBackend()
+        fs, n, f0, fdev = 12e6, 4096, 2e6, 1e6
+        k_segments = 8
+
+        lfm_spec = WaveformSpec(fs=fs, carrier_hz=f0, n_samples=n, fdev_hz=fdev)
+        lfm_field = LfmWaveform().render(backend, lfm_spec, np.random.default_rng(60))
+        lfm_sig = lfm_field.data[0, 0, :]
+
+        smsp_spec = WaveformSpec(fs=fs, carrier_hz=f0, n_samples=n, fdev_hz=fdev,
+                                  meta={"k_segments": k_segments})
+        smsp_field = SmspJammer().render(backend, smsp_spec, np.random.default_rng(61))
+        smsp_sig = smsp_field.data[0, 0, :]
+
+        ref = getX_numpy(fs, n, f0, 1.0, 0.0, fdev, 1.0)
+
+        def _energy_bandwidth_90(sig: np.ndarray) -> float:
+            """90%-энергетическая полоса — устойчивее к пиковой форме спектра, чем
+            «число бин выше X% пика» (SMSP даёт более острые пики из-за периодического
+            повтора K сегментов -> «bins above threshold» занижает его полосу; полная
+            энергетическая полоса же остаётся физически сопоставимой, что и требует J2)."""
+            freqs = np.fft.fftfreq(sig.shape[0], d=1.0 / fs)
+            power = np.abs(np.fft.fft(sig)) ** 2
+            order = np.argsort(freqs)
+            f_sorted, p_sorted = freqs[order], power[order]
+            cdf = np.cumsum(p_sorted) / p_sorted.sum()
+            lo = f_sorted[np.searchsorted(cdf, 0.05)]
+            hi = f_sorted[np.searchsorted(cdf, 0.95)]
+            return float(hi - lo)
+
+        raw_lfm_bw = _energy_bandwidth_90(lfm_sig)
+        raw_smsp_bw = _energy_bandwidth_90(smsp_sig)
+        ratio = raw_smsp_bw / max(raw_lfm_bw, 1.0)
+        g.add(0.5 < ratio < 2.0,
+              f"J2: сырые 90%-энергетические полосы ЛЧМ({raw_lfm_bw:.0f} Гц) и "
+              f"SMSP({raw_smsp_bw:.0f} Гц) должны быть сопоставимы (сырой спектр НЕ различает), "
+              f"ratio={ratio:.2f}")
+
+        matched_dechirped = _dechirp_numpy(lfm_sig, ref)
+        smsp_dechirped = _dechirp_numpy(smsp_sig, ref)
+        matched_spec = np.abs(np.fft.fft(matched_dechirped)) ** 2
+        smsp_spec_ = np.abs(np.fft.fft(smsp_dechirped)) ** 2
+        matched_peak_fraction = float(matched_spec.max() / matched_spec.sum())
+        smsp_peak_fraction = float(smsp_spec_.max() / smsp_spec_.sum())
+
+        g.add(matched_peak_fraction > 0.9,
+              f"matched ЛЧМ после дечирпа опорным -> острый пик, peak_fraction={matched_peak_fraction:.4f}")
+        g.add(smsp_peak_fraction < 0.3,
+              f"SMSP после дечирпа -> размазан, peak_fraction={smsp_peak_fraction:.4f}")
+        g.add(smsp_peak_fraction < matched_peak_fraction / 3,
+              f"SMSP peak_fraction={smsp_peak_fraction:.4f} должен быть << matched={matched_peak_fraction:.4f}")
+        return g
+
+    def test_drfm_repeater_cross_correlation_peaks(self) -> AssertionGroup:
+        g = AssertionGroup("p5.drfm_repeater_cross_correlation_peaks")
+        backend = NumpyBackend()
+        fs, n, f0, fdev = 12e6, 2048, 2e6, 1e6
+        # spacing >> автокорр. mainlobe чирпа (~1/fdev=1мкс=12 отсч.) — иначе соседние
+        # копии сливаются в одну корреляционную "кляксу" (проверено эмпирически).
+        lead_s, spacing_s, count = 5e-6, 5e-6, 5
+        spec = WaveformSpec(fs=fs, carrier_hz=f0, n_samples=n, fdev_hz=fdev,
+                             meta={"lead_s": lead_s, "spacing_s": spacing_s,
+                                   "count": count, "decay": 0.85})
+        field = DrfmRepeaterJammer().render(backend, spec, np.random.default_rng(70))
+        sig = field.data[0, 0, :]
+        ref = getX_numpy(fs, n, f0, 1.0, 0.0, fdev, 1.0)
+
+        nfft = 2 * n
+        corr = np.fft.ifft(np.fft.fft(sig, nfft) * np.conj(np.fft.fft(ref, nfft)))
+        mag = np.abs(corr)
+        noise_floor = float(np.median(mag))
+
+        expected_shifts = [round((lead_s + i * spacing_s) * fs) for i in range(count)]
+        for i, shift in enumerate(expected_shifts):
+            lo, hi = max(0, shift - 2), shift + 3
+            window = mag[lo:hi]
+            local_peak_idx = lo + int(np.argmax(window))
+            g.add(abs(local_peak_idx - shift) <= 1,
+                  f"копия #{i}: локальный максимум на {local_peak_idx}, ожидали τ_i={shift} (±1 отсч.)")
+            g.add(float(window.max()) > 5.0 * noise_floor,
+                  f"копия #{i} (τ_i={shift} отсч.): пик кросс-корр={window.max():.1f} "
+                  f"должен быть >> фон={noise_floor:.1f}")
+        return g
+
+    def test_industrial_cw_spectrum_peak(self) -> AssertionGroup:
+        g = AssertionGroup("p5.industrial_cw_spectrum_peak")
+        backend = NumpyBackend()
+        fs, n = 12e6, 4096
+        spec = WaveformSpec(fs=fs, carrier_hz=2e6, n_samples=n)   # f_int по умолчанию = fs*0.29
+        field = IndustrialCwJammer().render(backend, spec, np.random.default_rng(80))
+        sig = field.data[0, 0, :]
+        spectrum = np.abs(np.fft.fft(sig))
+        freqs = np.fft.fftfreq(n, d=1.0 / fs)
+        k_peak = int(np.argmax(spectrum))
+        f_int_expected = fs * 0.29
+        bin_width = fs / n
+        g.add(abs(freqs[k_peak] - f_int_expected) <= bin_width,
+              f"пик спектра INT_CW должен быть на f_int={f_int_expected:.0f}, получено {freqs[k_peak]:.0f}")
+        g.add(f_int_expected < fs / 2, f"J3: f_int={f_int_expected:.0f} должен быть < fs/2={fs / 2:.0f}")
+        return g
+
+    def test_impulsive_arc_kurtosis_and_sparsity(self) -> AssertionGroup:
+        g = AssertionGroup("p5.impulsive_arc_kurtosis_and_sparsity")
+        backend = NumpyBackend()
+        fs, n = 12e6, 8192
+        spec = WaveformSpec(fs=fs, carrier_hz=2e6, n_samples=n, amplitude=5.0,
+                             meta={"lambda_hz": 5e4, "tau_decay_s": 3e-7, "alpha_stable": 1.4})
+        field = ImpulsiveArcJammer().render(backend, spec, np.random.default_rng(90))
+        sig = field.data[0, 0, :]
+        mag = np.abs(sig)
+
+        k = float(kurtosis(mag, fisher=False))
+        g.add(k > 3.0, f"IMP_ARC должен иметь высокий эксцесс (kurtosis>3, Gauss~3), получено {k:.2f}")
+
+        threshold = 3.0 * float(np.std(mag))
+        sparsity = float(np.mean(mag > threshold))
+        g.add(sparsity < 0.05, f"IMP_ARC должен быть разрежен во времени, доля выбросов={sparsity:.4f}")
+        g.add(bool(np.any(mag > 0)), "IMP_ARC не должен быть тождественно нулевым")
+        return g
+
+    def test_vfd_harmonic_spectrum_peaks(self) -> AssertionGroup:
+        g = AssertionGroup("p5.vfd_harmonic_spectrum_peaks")
+        backend = NumpyBackend()
+        fs, n, f_sw, n_harm = 12e6, 8192, 8e3, 5
+        spec = WaveformSpec(fs=fs, carrier_hz=2e6, n_samples=n,
+                             meta={"f_sw": f_sw, "n_harmonics": n_harm, "broadband_frac": 0.0})
+        field = VfdHarmonicJammer().render(backend, spec, np.random.default_rng(95))
+        sig = field.data[0, 0, :]
+        spectrum = np.abs(np.fft.fft(sig))
+        freqs = np.fft.fftfreq(n, d=1.0 / fs)
+
+        def _bin_at(f: float) -> int:
+            return int(np.argmin(np.abs(freqs - f)))
+
+        noise_floor = float(np.median(spectrum))
+        found = 0
+        for harm in range(1, n_harm + 1):
+            k = _bin_at(harm * f_sw)
+            if spectrum[k] > 10.0 * noise_floor:
+                found += 1
+        g.add(found == n_harm, f"должны быть видны все {n_harm} гармоник n*f_sw, найдено {found}")
         return g
 
 

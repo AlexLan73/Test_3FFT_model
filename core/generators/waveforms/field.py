@@ -25,6 +25,14 @@ class Modulation(Enum):
     CW = "cw"                   # опорный тон (реюз DSP-GPU cw_numpy)
     NOISE = "noise"              # тепловой/аддитивный шум
 
+    # P5 — время-доменные помехи (патент §1.2 + промышленные, industrial §5-6)
+    BARRAGE = "barrage"                     # заградительная (когерентный шум с угла, J4)
+    SMSP = "smsp"                           # размытие спектра (DRFM пересборка подчирпами)
+    DRFM_REPEATER = "drfm_repeater"         # гребёнка ложных целей (задержанные копии ЛЧМ)
+    INDUSTRIAL_CW = "industrial_cw"         # CW чужого радара (INT_CW, 🔴1)
+    IMPULSIVE_ARC = "impulsive_arc"         # сварочная дуга/разряд (IMP_ARC, 🔴2)
+    VFD_HARMONIC = "vfd_harmonic"           # гармоники VFD/IGBT (HAR_VFD, 🔴3)
+
 
 class AxisKind(Enum):
     """Смысл конкретной оси `SignalField.data` (порядок соответствует `data.shape`)."""
