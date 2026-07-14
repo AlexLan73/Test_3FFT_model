@@ -24,12 +24,20 @@ from core.generators.waveforms import (  # noqa: E402
     AmWaveform,
     AxisKind,
     CwWaveform,
+    FmInterferenceWaveform,
     LfmWaveform,
     Modulation,
+    PhaseCodeWaveform,
     SignalField,
     TimeWindow,
     WaveformFactory,
     WaveformSpec,
+    m_sequence,
+)
+from core.generators.waveforms.mseq import (  # noqa: E402
+    _PRIMITIVE_TAPS,
+    gpu_lfsr_params,
+    m_sequence_pow2,
 )
 from core.generators.waveforms.reference import getX_numpy  # noqa: E402, N812
 from core.gpu_libs.loader import GpuLibsUnavailableError  # noqa: E402
@@ -437,6 +445,256 @@ class GeneratorsTests(TestRunner):
         except ValueError:
             raised = True
         g.add(raised, "HipBackend.render(AM) должен кинуть ValueError (GPU умеет только CW/ЛЧМ, §5)")
+        return g
+
+    # ── P4: mseq (M-послед. LFSR) ─────────────────────────────────────────────
+
+    def test_mseq_autocorrelation_thumbtack(self) -> AssertionGroup:
+        """Главный тест: циклическая автокорреляция m_sequence(13) = thumbtack (пик L, фон≈-1)."""
+        g = AssertionGroup("p4.mseq_autocorrelation_thumbtack")
+        code = m_sequence(13, seed=1)
+        length_l = code.shape[0]
+        g.add(length_l == 8191, f"degree=13 -> длина 2^13-1=8191, получено {length_l}")
+        g.add(code.dtype == np.float32, f"код должен быть float32, получено {code.dtype}")
+        g.add(bool(np.all(np.isin(code, (-1.0, 1.0)))), "код должен состоять только из ±1")
+
+        x = code.astype(np.float64)
+        autocorr = np.array([np.sum(x * np.roll(x, -k)) for k in range(length_l)])
+        peak = autocorr[0]
+        side_max = float(np.max(np.abs(autocorr[1:])))
+        g.add(peak == length_l, f"пик автокорреляции при сдвиге 0 должен быть L={length_l}, получено {peak}")
+        g.add(side_max <= 1.0 + 1e-6,
+              f"боковые лепестки thumbtack-автокорреляции должны быть ≈-1 (|·|≤1), получено max={side_max}")
+        return g
+
+    def test_mseq_all_degrees_thumbtack(self) -> AssertionGroup:
+        """Вся встроенная таблица полиномов (degree 7..16) — период 2^degree-1, thumbtack."""
+        g = AssertionGroup("p4.mseq_all_degrees_thumbtack")
+        for degree in sorted(_PRIMITIVE_TAPS):
+            code = m_sequence(degree, seed=1)
+            length_l = code.shape[0]
+            x = code.astype(np.float64)
+            autocorr = np.array([np.sum(x * np.roll(x, -k)) for k in range(length_l)])
+            g.add(length_l == (1 << degree) - 1, f"degree={degree}: длина должна быть 2^{degree}-1")
+            g.add(autocorr[0] == length_l, f"degree={degree}: пик автокорр. должен быть L={length_l}")
+            g.add(float(np.max(np.abs(autocorr[1:]))) <= 1.0 + 1e-6,
+                  f"degree={degree}: полином не примитивен (плохой thumbtack) — проверь _PRIMITIVE_TAPS")
+        return g
+
+    def test_mseq_determinism_same_seed(self) -> AssertionGroup:
+        g = AssertionGroup("p4.mseq_determinism_same_seed")
+        a = m_sequence(13, seed=5)
+        b = m_sequence(13, seed=5)
+        c = m_sequence(13, seed=6)
+        g.add(bool(np.array_equal(a, b)), "один seed (R6) -> идентичный код (побитово)")
+        g.add(not np.array_equal(a, c), "разные seed должны давать разные коды")
+        return g
+
+    def test_mseq_invalid_params_raise(self) -> AssertionGroup:
+        g = AssertionGroup("p4.mseq_invalid_params_raise")
+        raised_degree = False
+        try:
+            m_sequence(degree=32)
+        except ValueError:
+            raised_degree = True
+        g.add(raised_degree, "degree>=32 должен кинуть ValueError (регистр 32-бит)")
+
+        raised_seed = False
+        try:
+            m_sequence(degree=13, seed=0)
+        except ValueError:
+            raised_seed = True
+        g.add(raised_seed, "seed=0 должен кинуть ValueError (нулевое состояние LFSR вырождено)")
+
+        raised_no_table = False
+        try:
+            m_sequence(degree=20)
+        except ValueError:
+            raised_no_table = True
+        g.add(raised_no_table, "degree без встроенного полинома и без poly_taps -> ValueError")
+        return g
+
+    def test_mseq_pow2_wraps_to_first_sample(self) -> AssertionGroup:
+        """H3: `m_sequence_pow2` продолжает LFSR на 1 такт -> seq[L] == seq[0] (полный период)."""
+        g = AssertionGroup("p4.mseq_pow2_wraps_to_first_sample")
+        degree = 13
+        base = m_sequence(degree, seed=1)
+        padded = m_sequence_pow2(degree, seed=1)
+        g.add(padded.shape[0] == (1 << degree), f"длина должна быть 2^{degree}, получено {padded.shape[0]}")
+        g.add(bool(np.array_equal(padded[: base.shape[0]], base)),
+              "первые L отсчётов m_sequence_pow2 должны совпадать с m_sequence")
+        g.add(bool(padded[base.shape[0]] == base[0]),
+              "последний (L-й) отсчёт должен == первому (полный период LFSR вернулся в seed)")
+        return g
+
+    # ── P4: PhaseCodeWaveform (ФМн) ──────────────────────────────────────────
+
+    def test_phase_code_spectrum_wideband(self) -> AssertionGroup:
+        g = AssertionGroup("waveforms.phase_code_spectrum_wideband")
+        backend = NumpyBackend()
+        fs, n = 12e6, 8192
+        spec = WaveformSpec(fs=fs, carrier_hz=2e6, n_samples=n, meta={"degree": 13, "seed": 1})
+        field = PhaseCodeWaveform().render(backend, spec, np.random.default_rng(20))
+        sig = field.data[0, 0, :]
+        spectrum = np.abs(np.fft.fft(sig)) ** 2
+        peak_fraction = float(spectrum.max() / spectrum.sum())
+
+        cw_field = CwWaveform().render(
+            backend, WaveformSpec(fs=fs, carrier_hz=2e6, n_samples=n), np.random.default_rng(21)
+        )
+        cw_spectrum = np.abs(np.fft.fft(cw_field.data[0, 0, :])) ** 2
+        cw_peak_fraction = float(cw_spectrum.max() / cw_spectrum.sum())
+
+        g.add(peak_fraction < 0.05,
+              f"ФМн должен быть широкополосным (пик не доминирует), peak_fraction={peak_fraction:.4f}")
+        g.add(peak_fraction < cw_peak_fraction / 10,
+              f"ФМн peak_fraction={peak_fraction:.4f} должен быть << CW peak_fraction={cw_peak_fraction:.4f}")
+        return g
+
+    def test_phase_code_meta_code_is_real_pm1(self) -> AssertionGroup:
+        """H1: `field.meta['code']` — РЕАЛЬНЫЙ ±1 float32 (то, что подаём коррелятору), не data."""
+        g = AssertionGroup("waveforms.phase_code_meta_code_h1")
+        backend = NumpyBackend()
+        spec = WaveformSpec(fs=12e6, carrier_hz=2e6, n_samples=8192, meta={"degree": 13, "seed": 3})
+        field = PhaseCodeWaveform().render(backend, spec, np.random.default_rng(22))
+        code = field.meta.get("code")
+        g.add(code is not None, "field.meta должен содержать ключ 'code' (H1)")
+        g.add(code.dtype == np.float32, f"code.dtype должен быть float32, получено {code.dtype}")
+        g.add(not np.iscomplexobj(code), "code должен быть вещественным (НЕ complex passband), H1")
+        g.add(code.shape[0] == 8191, f"code — длина L=2^13-1=8191 (сырой, до растяжения), получено {code.shape}")
+        g.add(bool(np.all(np.isin(code, (-1.0, 1.0)))), "code должен состоять только из ±1")
+        g.add(field.data.dtype == np.complex64, "field.data остаётся complex64 (passband) — не путать с code")
+        return g
+
+    def test_phase_code_factory_dispatch_and_shape(self) -> AssertionGroup:
+        g = AssertionGroup("waveforms.phase_code_factory_dispatch_and_shape")
+        factory = WaveformFactory()
+        g.add(isinstance(factory.create(Modulation.PHASE_CODE), PhaseCodeWaveform),
+              "PHASE_CODE -> PhaseCodeWaveform")
+        backend = NumpyBackend()
+        spec = WaveformSpec(fs=12e6, carrier_hz=2e6, n_samples=2048, meta={"degree": 11})
+        field = PhaseCodeWaveform().render(backend, spec, np.random.default_rng(23))
+        g.add(field.data.shape == (16, 16, 2048), f"shape (16,16,2048), получено {field.data.shape}")
+        g.add(field.data.dtype == np.complex64, f"dtype complex64, получено {field.data.dtype}")
+        g.add(field.modulation == Modulation.PHASE_CODE, "modulation=PHASE_CODE")
+        return g
+
+    # ── P4: FmInterferenceWaveform (ЧМ-помеха) ───────────────────────────────
+
+    def test_fm_interference_sidebands(self) -> AssertionGroup:
+        g = AssertionGroup("waveforms.fm_interference_sidebands")
+        backend = NumpyBackend()
+        fs, n = 12e6, 8192
+        f_m = fs / 256.0
+        spec = WaveformSpec(fs=fs, carrier_hz=2e6, n_samples=n, meta={"beta": 2.0, "f_m": f_m})
+        field = FmInterferenceWaveform().render(backend, spec, np.random.default_rng(30))
+        sig = field.data[0, 0, :]
+        spectrum = np.abs(np.fft.fft(sig))
+        freqs = np.fft.fftfreq(n, d=1.0 / fs)
+
+        def _bin_at(f: float) -> int:
+            return int(np.argmin(np.abs(freqs - f)))
+
+        peak_mag = float(spectrum.max())
+        k_upper = _bin_at(spec.carrier_hz + f_m)
+        k_lower = _bin_at(spec.carrier_hz - f_m)
+        occ_bins = int(np.sum(spectrum > 0.05 * peak_mag))
+        g.add(spectrum[k_upper] > 0.05 * peak_mag, "боковая f0+f_m (Бессель J1) должна быть заметна")
+        g.add(spectrum[k_lower] > 0.05 * peak_mag, "боковая f0-f_m (Бессель J1) должна быть заметна")
+        g.add(occ_bins > 2, f"спектр ЧМ должен иметь несколько значимых компонент, occ_bins={occ_bins}")
+        return g
+
+    def test_fm_interference_factory_dispatch_and_shape(self) -> AssertionGroup:
+        g = AssertionGroup("waveforms.fm_interference_factory_dispatch_and_shape")
+        factory = WaveformFactory()
+        g.add(isinstance(factory.create(Modulation.FM_INTERFERENCE), FmInterferenceWaveform),
+              "FM_INTERFERENCE -> FmInterferenceWaveform")
+        backend = NumpyBackend()
+        spec = WaveformSpec(fs=12e6, carrier_hz=2e6, n_samples=2048)
+        field = FmInterferenceWaveform().render(backend, spec, np.random.default_rng(31))
+        g.add(field.data.shape == (16, 16, 2048), f"shape (16,16,2048), получено {field.data.shape}")
+        g.add(field.data.dtype == np.complex64, f"dtype complex64, получено {field.data.dtype}")
+        g.add(field.modulation == Modulation.FM_INTERFERENCE, "modulation=FM_INTERFERENCE")
+        return g
+
+    def test_phase_code_fm_determinism_same_seed(self) -> AssertionGroup:
+        g = AssertionGroup("waveforms.phase_code_fm_determinism_same_seed")
+        backend = NumpyBackend()
+        spec_pc = WaveformSpec(fs=12e6, carrier_hz=2e6, n_samples=2048, snr_db=10.0, meta={"degree": 11})
+        f1 = PhaseCodeWaveform().render(backend, spec_pc, np.random.default_rng(42))
+        f2 = PhaseCodeWaveform().render(backend, spec_pc, np.random.default_rng(42))
+        g.add(np.array_equal(f1.data, f2.data), "ФМн: один seed (R6) -> идентичный результат")
+
+        spec_fm = WaveformSpec(fs=12e6, carrier_hz=2e6, n_samples=2048, snr_db=10.0)
+        f3 = FmInterferenceWaveform().render(backend, spec_fm, np.random.default_rng(43))
+        f4 = FmInterferenceWaveform().render(backend, spec_fm, np.random.default_rng(43))
+        g.add(np.array_equal(f3.data, f4.data), "ЧМ: один seed (R6) -> идентичный результат")
+        return g
+
+    # ── P4: GPU-коррелятор (реюз FMCorrelatorROCm) — H1/H2/H3 ───────────────
+
+    def _fm_correlator_or_skip(self):
+        """`(dsp_radar module, ROCmGPUContext)`, либо `SkipTest` (нет `.so`/ROCm)."""
+        try:
+            from common.gpu_context import GPUContextManager
+            from core.gpu_libs import loader as gpu_libs
+        except ImportError as exc:
+            raise SkipTest(f"gpu_context/gpu_libs недоступны: {exc}") from None
+        try:
+            gpu_libs.require()
+            radar = gpu_libs.load("dsp_radar")
+        except GpuLibsUnavailableError as exc:
+            raise SkipTest(f"GPU недоступен: {exc}") from None
+        ctx = GPUContextManager.get_rocm()
+        if ctx is None:
+            raise SkipTest("ROCmGPUContext недоступен (ROCm-девайс не создан).")
+        return radar, ctx
+
+    def test_mseq_matches_correlator_generate_msequence(self) -> AssertionGroup:
+        """H2: наш `m_sequence`(выровненный по ст. битам) == `FMCorrelatorROCm.generate_msequence`
+        для ТОГО ЖЕ (выровненного) полинома/сида — бит-в-бит, на GPU (RX 9070)."""
+        g = AssertionGroup("p4.mseq_matches_correlator_generate_msequence")
+        radar, ctx = self._fm_correlator_or_skip()
+        degree, seed = 13, 1
+        polynomial, seed32 = gpu_lfsr_params(degree, seed)
+        fft_size = 1 << degree
+
+        corr = radar.FMCorrelatorROCm(ctx)
+        corr.set_params(fft_size=fft_size, num_shifts=1, num_signals=1, num_output_points=10,
+                         polynomial=polynomial, seed=seed32)
+        gpu_seq = corr.generate_msequence(seed32)
+        our_seq = m_sequence_pow2(degree, seed)
+
+        g.add(gpu_seq.shape == our_seq.shape,
+              f"формы должны совпасть: gpu={gpu_seq.shape} наш={our_seq.shape}")
+        matches = bool(np.array_equal(gpu_seq, our_seq))
+        n_diff = int(np.sum(gpu_seq != our_seq)) if not matches else 0
+        g.add(matches, f"наш LFSR должен совпасть с GPU generate_msequence бит-в-бит "
+                        f"(polynomial=0x{polynomial:08x}, seed=0x{seed32:08x}); расхождений={n_diff}")
+        return g
+
+    def test_correlator_peak_at_shift(self) -> AssertionGroup:
+        """H1/H3: наш real ±1 `m_sequence_pow2` как ref -> `process()` на циклически
+        сдвинутых `[S,N]` real float32 входах -> пик на позиции сдвига (GPU, RX 9070)."""
+        g = AssertionGroup("p4.correlator_peak_at_shift")
+        radar, ctx = self._fm_correlator_or_skip()
+        degree = 13
+        ref = m_sequence_pow2(degree, seed=1)   # H1: real ±1, НЕ SignalField.data; H3: pow2-длина
+        fft_size = ref.shape[0]
+        shifts = [0, 5, 17, 100, 250]
+        n_kg = 400
+
+        corr = radar.FMCorrelatorROCm(ctx)
+        corr.set_params(fft_size=fft_size, num_shifts=1, num_signals=len(shifts), num_output_points=n_kg)
+        corr.prepare_reference_from_data(ref)
+        signals = np.stack([np.roll(ref, d) for d in shifts]).astype(np.float32)  # [S, N] real
+        peaks = corr.process(signals)
+
+        g.add(peaks.shape == (len(shifts), 1, n_kg), f"peaks.shape должен быть (S,1,n_kg), получено {peaks.shape}")
+        for i, d in enumerate(shifts):
+            row = peaks[i, 0, :]
+            amax = int(np.argmax(row))
+            g.add(amax == d, f"shift d={d}: пик на позиции {amax} (ожидали {d}), val={row[amax]:.1f}")
         return g
 
 

@@ -3,8 +3,11 @@
 > **Исполнитель:** Sonnet · **Ревью:** Кодо (Opus) · **Тип:** новый код + реюз готового GPU-коррелятора.
 > **Спека:** [`specs/signal_generators_2026-07-13.md`](../specs/signal_generators_2026-07-13.md) (§5, §6.2, §3.1).
 > **Зависит от:** P0+P1+P2 (`SignalField`, `Waveform`, `NumpyBackend`, `_pipeline`, `HipBackend`, gpu_libs).
-> **Статус:** ⬜ НЕ НАЧАТО · 🔍 **ревью Кодо 2026-07-14** (сверено с кодом DSP-GPU): внесены H1 (коррелятор
-> REAL-код, не комплекс — гл. фикс), H2 (сверка LFSR ↔ `generate_msequence`), H3 (период `L` vs `fft_size`).
+> **Статус:** ✅ ПРИНЯТО (ревью Кодо 2026-07-14). Автокорр thumbtack (пик 8191, фон −1); LFSR==GPU
+> `generate_msequence` побитово (H2); коррелятор-интероп на RX 9070 — пик на d=250 val=8192 (H1 real-код,
+> H3 `m_sequence_pow2`+`roll(+d)`); .venv 31 ok/8 skip, python3.13 39 ok/0. ruff/mypy чисто.
+> 🐞 Побочно: агент нашёл пред-существующий баг `.gitignore` (инлайн-коммент → `graphics/` не игнорился,
+> 8 PNG затрекались) — Кодо починил строку; остаётся `git rm -r --cached graphics/` (за Alex).
 >
 > ℹ️ Старый **P3** (окно full/partial/short + шум по SNR) **уже сделан в P1** (`TimeWindow` + `render_pipeline`
 > + `add_noise`) — отдельной фазой не нужен. Это P4.

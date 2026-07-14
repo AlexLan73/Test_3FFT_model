@@ -2,6 +2,7 @@
 
 P0: `SignalField`/`Modulation`/`AxisKind`, `Waveform`/`WaveformSpec`, `TimeWindow`.
 P1: конкретные волны (`CwWaveform`/`LfmWaveform`/`AmWaveform`) + `WaveformFactory`.
+P4: `PhaseCodeWaveform`(ФМн) + `FmInterferenceWaveform`(ЧМ-помеха) + `mseq.m_sequence`.
 `GenBackend` — настоящий протокол теперь в `core.generators.backends` (P1); реэкспорт
 здесь оставлен для обратной совместимости с P0-импортами.
 """
@@ -13,13 +14,17 @@ from .base import Waveform, WaveformSpec
 from .cw import CwWaveform
 from .factory import WaveformFactory
 from .field import AxisKind, Modulation, SignalField
+from .fm import FmInterferenceWaveform
 from .lfm import LfmWaveform
+from .mseq import DEFAULT_DEGREE, m_sequence, m_sequence_pow2
+from .phase_code import PhaseCodeWaveform
 from .placement import TimeWindow
 
 __all__ = [
     "SignalField", "Modulation", "AxisKind",
     "Waveform", "WaveformSpec", "GenBackend",
     "TimeWindow",
-    "CwWaveform", "LfmWaveform", "AmWaveform",
+    "CwWaveform", "LfmWaveform", "AmWaveform", "PhaseCodeWaveform", "FmInterferenceWaveform",
     "WaveformFactory",
+    "m_sequence", "m_sequence_pow2", "DEFAULT_DEGREE",
 ]

@@ -25,7 +25,9 @@ from .am import AmWaveform
 from .base import Waveform
 from .cw import CwWaveform
 from .field import Modulation
+from .fm import FmInterferenceWaveform
 from .lfm import LfmWaveform
+from .phase_code import PhaseCodeWaveform
 
 Builder = Callable[[], Waveform]
 
@@ -50,3 +52,5 @@ class WaveformFactory:
         self.register(Modulation.CW, CwWaveform)
         self.register(Modulation.LFM, LfmWaveform)
         self.register(Modulation.AM, AmWaveform)
+        self.register(Modulation.PHASE_CODE, PhaseCodeWaveform)
+        self.register(Modulation.FM_INTERFERENCE, FmInterferenceWaveform)

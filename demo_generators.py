@@ -28,17 +28,22 @@ from core.generators.backends import NumpyBackend
 from core.generators.waveforms import (
     AmWaveform,
     CwWaveform,
+    FmInterferenceWaveform,
     LfmWaveform,
     Modulation,
+    PhaseCodeWaveform,
     TimeWindow,
     WaveformSpec,
+    m_sequence,
 )
+from core.generators.waveforms.mseq import m_sequence_pow2
 from core.gpu_libs.loader import GpuLibsUnavailableError
 from core.graphics.writer import FigureWriter
 from core.snr import StatisticsSnrEstimator
 
 _OUT_DIR = "graphics/signal_generators/p1_numpy_cw_lfm_am"
 _OUT_DIR_P2 = "graphics/signal_generators/p2_gpu_vs_numpy"
+_OUT_DIR_P4 = "graphics/signal_generators/p4_phase_code_fm"
 _FS = 12e6
 _F0 = 2e6
 _N = 4096
@@ -238,6 +243,146 @@ def _demo_gpu_vs_numpy(writer: FigureWriter) -> bool:
     return True
 
 
+def _demo_mseq_autocorr(writer: FigureWriter) -> None:
+    """P4: thumbtack-автокорреляция `m_sequence(13)` — пик L, фон ≈-1 (доказывает полином)."""
+    degree = 13
+    code = m_sequence(degree, seed=1)
+    length_l = code.shape[0]
+    x = code.astype(np.float64)
+    autocorr = np.array([np.sum(x * np.roll(x, -k)) for k in range(length_l)])
+
+    fig, (ax_code, ax_ac) = plt.subplots(2, 1, figsize=(9, 6))
+    ax_code.step(np.arange(200), code[:200], where="mid")
+    ax_code.set_title(f"m_sequence(degree={degree}): первые 200 чипов из L={length_l}")
+    ax_code.set_xlabel("k (чип)")
+    ax_code.set_ylabel("±1")
+    ax_code.grid(True, alpha=0.3)
+
+    shifts = np.arange(length_l)
+    ax_ac.plot(shifts, autocorr)
+    ax_ac.axhline(-1.0, color="r", linestyle="--", alpha=0.5, label="фон ≈ -1 (thumbtack)")
+    ax_ac.set_title(f"Циклическая автокорреляция: пик={autocorr[0]:.0f}=L, "
+                     f"max|фон|={np.max(np.abs(autocorr[1:])):.1f}")
+    ax_ac.set_xlabel("сдвиг k")
+    ax_ac.legend()
+    ax_ac.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    writer.write(fig, "mseq_autocorr.png")
+    plt.close(fig)
+
+
+def _demo_phase_code_spectrum(backend: NumpyBackend, writer: FigureWriter) -> None:
+    """P4: ФМн — код (±1 по времени) + широкополосный спектр (§5/§6.2)."""
+    fs, n, degree = _FS, 8192, 13
+    spec = WaveformSpec(fs=fs, carrier_hz=_F0, n_samples=n, meta={"degree": degree, "seed": 1})
+    field = PhaseCodeWaveform().render(backend, spec, np.random.default_rng(20))
+    sig = field.data[0, 0, :]
+    code = field.meta["code"]   # H1: real ±1, сырой (до растяжения/несущей)
+
+    spectrum = np.abs(np.fft.fft(sig))
+    freqs = np.fft.fftfreq(n, d=1.0 / fs)
+    order = np.argsort(freqs)
+
+    fig, (ax_code, ax_f) = plt.subplots(2, 1, figsize=(9, 6))
+    ax_code.step(np.arange(200), code[:200], where="mid")
+    ax_code.set_title(f"ФМн код ±1 (meta['code'], H1) — первые 200 из L={code.shape[0]}")
+    ax_code.set_xlabel("k (чип)")
+    ax_code.grid(True, alpha=0.3)
+
+    ax_f.plot(freqs[order] / 1e6, spectrum[order])
+    ax_f.axvline(_F0 / 1e6, color="r", linestyle="--", alpha=0.5, label="f0")
+    ax_f.set_title("ФМн: широкополосный спектр (BPSK, НЕ узкий тон)")
+    ax_f.set_xlabel("f, МГц")
+    ax_f.legend()
+    ax_f.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    writer.write(fig, "phase_code_spectrum.png")
+    plt.close(fig)
+
+
+def _demo_fm_interference(backend: NumpyBackend, writer: FigureWriter) -> None:
+    """P4: ЧМ-помеха — спектрограмма (пост. частота с девиацией) + спектр (боковые Бесселя)."""
+    fs, n = _FS, 8192
+    f_m = fs / 256.0
+    spec = WaveformSpec(fs=fs, carrier_hz=_F0, n_samples=n, meta={"beta": 2.0, "f_m": f_m})
+    field = FmInterferenceWaveform().render(backend, spec, np.random.default_rng(30))
+    sig = field.data[0, 0, :]
+
+    f_spec, t_spec, sxx = spectrogram(sig, fs=fs, nperseg=256, noverlap=224, return_onesided=False)
+    order = np.argsort(f_spec)
+    spectrum = np.abs(np.fft.fft(sig))
+    freqs = np.fft.fftfreq(n, d=1.0 / fs)
+    forder = np.argsort(freqs)
+
+    fig, (ax_spg, ax_f) = plt.subplots(2, 1, figsize=(9, 7))
+    mesh = ax_spg.pcolormesh(t_spec * 1e6, f_spec[order] / 1e6, 10 * np.log10(sxx[order] + 1e-20),
+                              shading="auto")
+    fig.colorbar(mesh, ax=ax_spg, label="дБ")
+    ax_spg.set_title("ЧМ-помеха: спектрограмма (девиация вокруг f0, НЕ линейный чирп)")
+    ax_spg.set_xlabel("t, мкс")
+    ax_spg.set_ylabel("f, МГц")
+
+    ax_f.plot(freqs[forder] / 1e6, spectrum[forder])
+    for k in (-2, -1, 0, 1, 2):
+        ax_f.axvline((_F0 + k * f_m) / 1e6, color="r", linestyle="--", alpha=0.3)
+    ax_f.set_title("ЧМ-помеха: спектр (несущая + боковые Бесселя f0±k·f_m)")
+    ax_f.set_xlabel("f, МГц")
+    ax_f.set_xlim((_F0 - 6 * f_m) / 1e6, (_F0 + 6 * f_m) / 1e6)
+    ax_f.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    writer.write(fig, "fm_interference.png")
+    plt.close(fig)
+
+
+def _demo_correlator_peak(writer: FigureWriter) -> bool:
+    """P4/H1: выход `FMCorrelatorROCm` — острый пик на позиции сдвига (GPU; иначе — no-op).
+
+    Возвращает False (и ничего не пишет), если `.so`/ROCm недоступны — норма на
+    Windows/cp312 (та же конвенция, что `_demo_gpu_vs_numpy`, §9 спеки).
+    """
+    try:
+        from common.gpu_context import GPUContextManager
+        from core.gpu_libs import loader as gpu_libs
+        gpu_libs.require()
+        radar = gpu_libs.load("dsp_radar")
+        ctx = GPUContextManager.get_rocm()
+        if ctx is None:
+            raise GpuLibsUnavailableError("ROCmGPUContext недоступен.")
+    except (ImportError, GpuLibsUnavailableError) as exc:
+        print(f"P4 correlator-демо пропущено (нет .so/ROCm): {exc}")
+        return False
+
+    degree = 13
+    ref = m_sequence_pow2(degree, seed=1)   # H1: real ±1, H3: pow2-длина под fft_size
+    fft_size = ref.shape[0]
+    shift = 250
+    n_kg = 400
+
+    corr = radar.FMCorrelatorROCm(ctx)
+    corr.set_params(fft_size=fft_size, num_shifts=1, num_signals=1, num_output_points=n_kg)
+    corr.prepare_reference_from_data(ref)
+    signal = np.roll(ref, shift).astype(np.float32)
+    peaks = corr.process(signal[None, :])
+    row = peaks[0, 0, :]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.plot(row)
+    ax.axvline(shift, color="r", linestyle="--", alpha=0.5, label=f"ожидаемый сдвиг d={shift}")
+    ax.set_title(f"FMCorrelatorROCm.process(): пик на d={int(np.argmax(row))} "
+                 f"(val={row.max():.0f}, ожидали d={shift})")
+    ax.set_xlabel("задержка (отсчёты)")
+    ax.set_ylabel("корреляция")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    fig.tight_layout()
+    writer.write(fig, "correlator_peak.png")
+    plt.close(fig)
+    return True
+
+
 def main() -> None:
     backend = NumpyBackend()
     writer = FigureWriter(_OUT_DIR)
@@ -253,6 +398,14 @@ def main() -> None:
     writer_p2 = FigureWriter(_OUT_DIR_P2)
     if _demo_gpu_vs_numpy(writer_p2):
         print(f"Записано 2 png в {_OUT_DIR_P2}")
+
+    writer_p4 = FigureWriter(_OUT_DIR_P4)
+    _demo_mseq_autocorr(writer_p4)
+    _demo_phase_code_spectrum(backend, writer_p4)
+    _demo_fm_interference(backend, writer_p4)
+    print(f"Записано 3 png в {_OUT_DIR_P4}")
+    if _demo_correlator_peak(writer_p4):
+        print(f"Записано correlator_peak.png в {_OUT_DIR_P4}")
 
 
 if __name__ == "__main__":
