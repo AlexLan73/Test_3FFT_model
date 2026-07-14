@@ -3,7 +3,9 @@
 > **Исполнитель:** Sonnet · **Ревью:** Кодо (Opus) · **Тип:** новый код (не порт), ООП/SOLID/GoF.
 > **Спека:** [`specs/signal_generators_2026-07-13.md`](../specs/signal_generators_2026-07-13.md) (§0,§4,§5.1,§9).
 > **Ревью-риски:** [`specs/signal_generators_review_2026-07-14.md`](../specs/signal_generators_review_2026-07-14.md).
-> **Статус:** ⬜ НЕ НАЧАТО.
+> **Статус:** ✅ РЕАЛИЗОВАНО (Sonnet) + ✅ ПРИНЯТО (ревью Кодо 2026-07-14). Тесты 11 ok + 1 skip (pyyaml
+> вне .venv; YAML-путь сверен на cp313), старые 28 целы, ruff/mypy чисто, визуал ок, изменения аддитивные.
+> Хвост для P1: убрать заглушку `GenBackend` из `waveforms/base.py` → настоящий в `backends/base.py`.
 >
 > 🚨 **КРИТИЧНО:** 🚫 `pytest` (только `common.runner.TestRunner` + `AssertionGroup` + `SkipTest`).
 > 🚫 писать в `.claude/worktrees/**`. Всё — в корень репо. Существующий `core/generators/*` (куб-уровень)

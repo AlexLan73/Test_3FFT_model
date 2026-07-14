@@ -1,0 +1,14 @@
+# baseline.yaml — стартовый сценарий генерации сырого времени (§5.1 спеки
+# signal_generators_2026-07-13.md). Alex правит числа по мере необходимости;
+# перебор нескольких таких файлов — через ConfigSource.iter_configs() (sweep, Q2).
+
+fs: 12000000.0          # 12 МГц — дискретизация (DSP-GPU factories default)
+carrier_hz: 2000000.0   # 2 МГц — несущая/IF (DSP-GPU default)
+fdev_hz: 6000000.0      # 6 МГц — полоса ЛЧМ (патент гл.7.5 → Δr≈25 м)
+n_samples: 8192         # длина по быстрому времени (DSP-GPU default)
+
+array:
+  nx: 16                # решётка 16x16 (d=λ/2), патент гл.4 / industrial
+  ny: 16
+
+seed: 7                 # rng seed (R6: детерминизм датасета)

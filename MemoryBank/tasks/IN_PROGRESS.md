@@ -26,10 +26,17 @@
   Схема: Кодо таски → ревью → Sonnet код → Кодо проверка.
   → спека [`specs/signal_generators_2026-07-13.md`](../specs/signal_generators_2026-07-13.md)
   → ревью [`specs/signal_generators_review_2026-07-14.md`](../specs/signal_generators_review_2026-07-14.md)
-  - **Детальные таски готовы (на ревью Alex):**
-    P0 [`TASK_signal_generators_p0.md`](TASK_signal_generators_p0.md) — SignalField+конфиг+окно+YAML.
-    P1 [`TASK_signal_generators_p1.md`](TASK_signal_generators_p1.md) — NumpyBackend+CW/ЛЧМ/АМ.
-    P2 [`TASK_signal_generators_p2.md`](TASK_signal_generators_p2.md) — gpu_libs+GPU-smoke+HipBackend+сверка.
+  - **Ход реализации (Sonnet код → Кодо ревью):**
+    P0 [`TASK...p0.md`](TASK_signal_generators_p0.md) — ✅ ПРИНЯТО (SignalField+конфиг+окно+YAML; 11 тестов).
+    P1 [`TASK...p1.md`](TASK_signal_generators_p1.md) — ✅ ПРИНЯТО (NumpyBackend+CW/ЛЧМ/АМ; 48 тестов, SNR ок).
+    P2 [`TASK...p2.md`](TASK_signal_generators_p2.md) — ✅ ПРИНЯТО (ревью Кодо 2026-07-14). GPU на
+    RX 9070: python3.13 → **26 ok/0 fail**; .venv(cp312) → 20 ok + 6 skip (GPU скип чисто, ABI не падает).
+    Эскалация G11 закрыта (порог 1e-3, ЛЧМ-канон=`getX` центр., `norm=1.0`). CW/ЛЧМ N=4096 raw=5.11e-4
+    (<1e-3); Кодо добавил тест **модуля на baseline N=8192 = 1.19e-7** (закрыл дыру находки — фаза
+    дрейфует float32, но модуль точен, и в дечирпе rx·conj(ref) сокращается). `HipBackend` DRY (реюз
+    `render_pipeline`), `.so` в gitignore, вендоринг с атрибуцией.
+  - **✅ Фундамент P0–P2 готов**: генерация CW/ЛЧМ/АМ на n×n, 2 бэкенда (NumpyBackend эталон +
+    HipBackend/GPU боевой), конфиг+YAML, `SignalField`. Дальше: P3 (окно/шум) → P4 (ФМн+коррелятор) → …
   - 🖼️ **Графики-подтверждения:** корневой `graphics/signal_generators/<phase>/` (подкаталог на фазу,
     НЕ в куче), пишем `FigureWriter` (сам mkdir), `graphics/` в `.gitignore`. Каждая фаза даёт визуал.
   - **Роадмап (детализируем после P0–P2):**

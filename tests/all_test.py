@@ -11,12 +11,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.test_cfar import CfarTests
+from tests.test_generators import GeneratorsTests
 from tests.test_graphics import GraphicsTests
 from tests.test_nuller import NullerTests
 from tests.test_smoke import SmokeTests
 from tests.test_snr import SnrTests
 
-SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests]
+SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests, GeneratorsTests]
 
 
 def main() -> int:

@@ -2,7 +2,10 @@
 
 > **Исполнитель:** Sonnet · **Ревью:** Кодо (Opus) · **Тип:** новый код + вендоринг формул DSP-GPU.
 > **Спека:** [`specs/signal_generators_2026-07-13.md`](../specs/signal_generators_2026-07-13.md) (§4,§5).
-> **Зависит от:** P0 (SignalField, WaveformSpec, TimeWindow, конфиг). **Статус:** ⬜ НЕ НАЧАТО.
+> **Зависит от:** P0 (SignalField, WaveformSpec, TimeWindow, конфиг). **Статус:** ✅ РЕАЛИЗОВАНО (Sonnet)
+> + ✅ ПРИНЯТО (ревью Кодо 2026-07-14). 48 тестов зелены, ruff/mypy 0, `GenBackend`-дубль убран,
+> SNR на диагонали ±1дБ (R5 ок), чирп корректен, старые 28 целы. Фабрика — новый `WaveformFactory`
+> (диспатч по `Modulation`). Гео через `spec.meta` (kx/ky/nx/ny) — заглушка «по нормали» до `SceneModeler`.
 >
 > 🚨 🚫 pytest (только `TestRunner`) · 🚫 `.claude/worktrees/**` · существующее НЕ ломать.
 
