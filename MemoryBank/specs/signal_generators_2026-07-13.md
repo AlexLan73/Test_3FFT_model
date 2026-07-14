@@ -465,9 +465,20 @@ core/config/
 core/gpu_libs/                 # R1: копии DSP-GPU .so (cp313) + configGPU.json + loader.py
 tests/test_generators.py      # TestRunner
 demo_generators.py            # Composition Root: выбор backend по платформе, графики
+graphics/                     # 🖼️ КОРНЕВОЙ каталог графиков-подтверждений (git-ignored)
+  signal_generators/          #   тема
+    p0_field_window/          #     маска TimeWindow (full/partial/short)
+    p1_numpy_cw_lfm_am/       #     время+спектр CW/ЛЧМ/АМ, спектрограмма ЛЧМ, окно
+    p2_gpu_vs_numpy/          #     оверлей GPU↔NumPy + карта ошибки
+    p3_window_noise/ … p8_demo/   # каждая фаза — свой подкаталог (НЕ в куче)
 ```
 
 > Всё в **корне основного репо** (правило 03: 🚫 `.claude/worktrees/`).
+>
+> 🖼️ **Конвенция графики (правка Alex 2026-07-14):** все графики-подтверждения пишем в **корневой
+> `graphics/`**, каждая фаза/задача — **отдельный подкаталог** `graphics/signal_generators/<phase>/`
+> (не сваливать в одну кучу). Пишем **существующим** `FigureWriter(dir)` — он сам создаёт каталог
+> (`os.makedirs(exist_ok=True)`), новых сущностей не плодим. `graphics/` — в `.gitignore` (артефакты).
 
 ---
 

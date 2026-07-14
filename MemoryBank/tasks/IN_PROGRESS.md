@@ -22,9 +22,24 @@
   статистика), 3 графика, torch-free. Инструкция `Doc/snr_usage.md`. **Готово.**
   → [`TASK_snr_phase1.md`](TASK_snr_phase1.md)
 
-- 📝 **Генераторы сигналов АМ/ЛЧМ/ФМн + помехи (план)** (2026-07-13) — черновик спеки на правку Alex.
-  Слой сырого времени + мост в куб, 2 бэкенда (NumPy/HIP), train/deploy split (cp312/cp313).
-  → [`specs/signal_generators_2026-07-13.md`](../specs/signal_generators_2026-07-13.md) · **6 открытых вопросов в §11**
+- 🔨 **Генераторы сигналов АМ/ЛЧМ/ФМн + помехи** (2026-07-14) — спека согласована + ревью закрыто.
+  Схема: Кодо таски → ревью → Sonnet код → Кодо проверка.
+  → спека [`specs/signal_generators_2026-07-13.md`](../specs/signal_generators_2026-07-13.md)
+  → ревью [`specs/signal_generators_review_2026-07-14.md`](../specs/signal_generators_review_2026-07-14.md)
+  - **Детальные таски готовы (на ревью Alex):**
+    P0 [`TASK_signal_generators_p0.md`](TASK_signal_generators_p0.md) — SignalField+конфиг+окно+YAML.
+    P1 [`TASK_signal_generators_p1.md`](TASK_signal_generators_p1.md) — NumpyBackend+CW/ЛЧМ/АМ.
+    P2 [`TASK_signal_generators_p2.md`](TASK_signal_generators_p2.md) — gpu_libs+GPU-smoke+HipBackend+сверка.
+  - 🖼️ **Графики-подтверждения:** корневой `graphics/signal_generators/<phase>/` (подкаталог на фазу,
+    НЕ в куче), пишем `FigureWriter` (сам mkdir), `graphics/` в `.gitignore`. Каждая фаза даёт визуал.
+  - **Роадмап (детализируем после P0–P2):**
+    P3 — TimeWindow full/partial/short + AdditiveNoise (SNR-в-дБ, R5). 🖼️ `p3_window_noise/`.
+    P4 — ФМн-код 2ⁿ (LFSR, наш) + коррелятор `FMCorrelatorROCm` (реюз, §6.2) + ЧМ + автокорр. 🖼️ `p4_phase_code_fm/`.
+    P5 — помехи: патент (SMSP/DRFM-repeater/BarrageRF) + промышленные (INT_CW/IMP_ARC/HAR_VFD…, §3.1). 🖼️ `p5_jammers/`.
+    P6 — `TactSequence`: движение цели + помехи во времени (+ ⏳ ресёрч моделей движения, Q7). 🖼️ `p6_tacts/`.
+    P7 — порт прототипа в DSP-GPU (C++/HIP): АМ/ФМн/ЧМ + движение (§2.2).
+    P8 — `demo_generators.py` + сводные графики + полный прогон тестов. 🖼️ `p8_demo/`.
+  - **Блокеры ревью:** R1 (загрузка .so → `core/gpu_libs/`, копируем) — решено; R2 (реальный GPU-smoke) — шаг 0 в P2.
 
 ## Следующее
 
