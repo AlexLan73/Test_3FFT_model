@@ -6,6 +6,7 @@ from .scene_config import (
     DrfmCombSpec,
     EmitterSpec,
     HamEmitterSpec,
+    JammerFlags,
     SceneConfig,
     TargetSpec,
     ThermalNoiseSpec,
@@ -22,7 +23,7 @@ from .waveform_config import WaveTimeConfig
 
 __all__ = [
     "ArrayConfig", "RangeConfig", "EmitterSpec", "TargetSpec", "DrfmCombSpec",
-    "BarrageSpec", "HamEmitterSpec", "ThermalNoiseSpec", "SceneConfig",
+    "BarrageSpec", "HamEmitterSpec", "ThermalNoiseSpec", "JammerFlags", "SceneConfig",
     "SimulationConfig", "default_scenario",
     "target_edge_scenario", "barrage_edge_scenario", "comb_edge_scenario",
     "edge_scenarios",
