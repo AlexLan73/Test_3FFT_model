@@ -13,23 +13,113 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..config import SimulationConfig
+from ..config import (
+    ArrayConfig,
+    BarrageSpec,
+    DrfmCombSpec,
+    EmitterSpec,
+    HamEmitterSpec,
+    ProjectConfig,
+    RangeConfig,
+    SceneConfig,
+    SimulationConfig,
+    TargetSpec,
+    ThermalNoiseSpec,
+    WaveTimeConfig,
+)
 
-__all__ = ["RunWorkspace", "config_to_dict", "to_yaml", "from_yaml"]
+_EMITTER_TYPES: dict[str, type[EmitterSpec]] = {
+    "TargetSpec": TargetSpec,
+    "DrfmCombSpec": DrfmCombSpec,
+    "BarrageSpec": BarrageSpec,
+    "HamEmitterSpec": HamEmitterSpec,
+    "EmitterSpec": EmitterSpec,
+}
+
+__all__ = ["RunWorkspace", "config_to_dict", "to_yaml", "from_yaml",
+           "project_config_to_dict", "project_config_from_dict"]
 
 
 # --- сериализация конфигурации сцены -> простой dict (воспроизводимость) -------
-def config_to_dict(cfg: SimulationConfig) -> dict[str, Any]:
-    """SimulationConfig -> вложенный dict со всеми параметрами источников."""
+def config_to_dict(cfg: SimulationConfig | ProjectConfig) -> dict[str, Any]:
+    """SimulationConfig/ProjectConfig -> вложенный dict со всеми параметрами.
+
+    A5: `ProjectConfig` (P6, агрегат) грузится/сохраняется здесь же -- НЕ через
+    `YamlConfigSource` (требует PyYAML, которого в офлайн-среде нет, и знает
+    только про `WaveTimeConfig`).
+    """
+    if isinstance(cfg, ProjectConfig):
+        return project_config_to_dict(cfg)
     return {
         "seed": cfg.seed,
         "array": {"nx": cfg.array.nx, "ny": cfg.array.ny},
         "range": {"n_real": cfg.range.n_real, "n_fft": cfg.range.n_fft},
-        "scene": {
-            "emitters": [_emitter_to_dict(e) for e in cfg.scene.emitters],
-            "thermal": {"power": cfg.scene.thermal.power},
-        },
+        "scene": _scene_to_dict(cfg.scene),
     }
+
+
+def _scene_to_dict(scene: SceneConfig) -> dict[str, Any]:
+    return {
+        "emitters": [_emitter_to_dict(e) for e in scene.emitters],
+        "thermal": {"power": scene.thermal.power},
+    }
+
+
+def project_config_to_dict(cfg: ProjectConfig) -> dict[str, Any]:
+    """`ProjectConfig` -> dict (свой YAML-дампер, без PyYAML, A5)."""
+    return {
+        "array": {"nx": cfg.array.nx, "ny": cfg.array.ny},
+        "range": {"n_real": cfg.range_.n_real, "n_fft": cfg.range_.n_fft},
+        "wave": {
+            "fs": cfg.wave.fs,
+            "carrier_hz": cfg.wave.carrier_hz,
+            "fdev_hz": cfg.wave.fdev_hz,
+            "n_samples": cfg.wave.n_samples,
+            "array": {"nx": cfg.wave.array.nx, "ny": cfg.wave.array.ny},
+            "seed": cfg.wave.seed,
+        },
+        "scene": _scene_to_dict(cfg.scene),
+        "modulation": cfg.modulation,
+        "am_window_depth": cfg.am_window_depth,
+        "am_step": cfg.am_step,
+        "n_pulses": cfg.n_pulses,
+        "transport_endpoint": cfg.transport_endpoint,
+        "viz_neighbor_planes": cfg.viz_neighbor_planes,
+    }
+
+
+def project_config_from_dict(data: dict[str, Any]) -> ProjectConfig:
+    """Парная сборка `ProjectConfig` из dict, произведённого `project_config_to_dict`."""
+    array_raw = data.get("array", {})
+    range_raw = data.get("range", {})
+    wave_raw = data.get("wave", {})
+    wave_array_raw = wave_raw.get("array", {})
+    scene_raw = data.get("scene", {})
+
+    scene = SceneConfig(
+        emitters=tuple(_emitter_from_dict(e) for e in scene_raw.get("emitters", [])),
+        thermal=ThermalNoiseSpec(power=float(scene_raw.get("thermal", {}).get("power", 0.02))),
+    )
+    wave = WaveTimeConfig(
+        fs=float(wave_raw.get("fs", 12e6)),
+        carrier_hz=float(wave_raw.get("carrier_hz", 2e6)),
+        fdev_hz=float(wave_raw.get("fdev_hz", 6e6)),
+        n_samples=int(wave_raw.get("n_samples", 8192)),
+        array=ArrayConfig(nx=int(wave_array_raw.get("nx", 16)), ny=int(wave_array_raw.get("ny", 16))),
+        seed=int(wave_raw.get("seed", 7)),
+    )
+    return ProjectConfig(
+        array=ArrayConfig(nx=int(array_raw.get("nx", 16)), ny=int(array_raw.get("ny", 16))),
+        range_=RangeConfig(n_real=int(range_raw.get("n_real", 16)), n_fft=int(range_raw.get("n_fft", 16))),
+        wave=wave,
+        scene=scene,
+        modulation=str(data.get("modulation", "lfm")),
+        am_window_depth=int(data.get("am_window_depth", 16)),
+        am_step=int(data.get("am_step", 8)),
+        n_pulses=int(data.get("n_pulses", 64)),
+        transport_endpoint=str(data.get("transport_endpoint", "tcp://127.0.0.1:5556")),
+        viz_neighbor_planes=int(data.get("viz_neighbor_planes", 5)),
+    )
 
 
 def _emitter_to_dict(emitter: Any) -> dict[str, Any]:
@@ -37,6 +127,14 @@ def _emitter_to_dict(emitter: Any) -> dict[str, Any]:
     data: dict[str, Any] = {"type": type(emitter).__name__}
     data.update(asdict(emitter))
     return data
+
+
+def _emitter_from_dict(data: dict[str, Any]) -> EmitterSpec:
+    """Парная сборка спецификации излучателя (по метке `type`, см. `_emitter_to_dict`)."""
+    payload = dict(data)
+    type_name = payload.pop("type", "EmitterSpec")
+    cls = _EMITTER_TYPES.get(type_name, EmitterSpec)
+    return cls(**payload)
 
 
 # --- минимальный YAML-дампер (подмножество: dict / list / скаляры) ------------

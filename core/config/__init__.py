@@ -1,5 +1,6 @@
 from .array_config import ArrayConfig, RangeConfig
 from .config_source import ConfigSource, DefaultConfigSource, YamlConfigSource
+from .project_config import ProjectConfig
 from .scene_config import (
     BarrageSpec,
     DrfmCombSpec,
@@ -26,4 +27,5 @@ __all__ = [
     "target_edge_scenario", "barrage_edge_scenario", "comb_edge_scenario",
     "edge_scenarios",
     "WaveTimeConfig", "ConfigSource", "DefaultConfigSource", "YamlConfigSource",
+    "ProjectConfig",
 ]
