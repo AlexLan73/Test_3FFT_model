@@ -59,6 +59,11 @@ def render_pipeline(
 
     `signal` — уже посчитанный 1D-сигнал шага 1 (формула конкретной волны, длина
     `spec.n_samples`, complex64).
+
+    P4/M1: шум подмешивается только если `spec.add_noise` (дефолт `True` -- поведение
+    как раньше). `VolumeBuilder` (`core/generators/volume.py`) ставит `add_noise=False`
+    при per-target рендере в мульти-целевой сцене -- N целей суммируются БЕЗ шума, шум
+    добавляется ОДИН раз поверх суммы (`VolumeBuilder.add_shared_noise`), а не N раз.
     """
     mask = spec.window.mask(spec.n_samples, spec.fs)
     windowed = backend.apply_window(signal, mask)
@@ -67,7 +72,7 @@ def render_pipeline(
     steer = grid.steering(kx, ky)
     data = steer[:, :, None] * windowed[None, None, :]
 
-    if spec.snr_db is not None:
+    if spec.snr_db is not None and spec.add_noise:
         data = backend.add_noise(data, NOISE_POWER, rng)
 
     return SignalField(

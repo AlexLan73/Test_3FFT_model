@@ -37,6 +37,11 @@ class WaveformSpec:
     tau_s: float = 0.0                      # задержка
     window: TimeWindow = field(default_factory=lambda: TimeWindow(kind="full"))
     meta: Mapping[str, float] = field(default_factory=dict)   # G10: параметры под тип (AM: m,f_m; …)
+    # P4/M1: `add_noise=False` -> амплитуда всё ещё калибрована по `snr_db` (см.
+    # `amplitude_for_snr`), но `render_pipeline` шум НЕ подмешивает -- нужно для
+    # мульти-цели (N целей суммируются БЕЗ шума, шум добавляется ОДИН раз поверх
+    # суммы, не N раз на цель). Дефолт True -- поведение как раньше (совместимость).
+    add_noise: bool = True
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "meta", MappingProxyType(dict(self.meta)))
