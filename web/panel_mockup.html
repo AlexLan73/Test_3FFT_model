@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>radar3d — макет панели сцены</title>
+<style>
+  body{margin:0;background:#0b0e13;color:#e6edf3;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;display:flex;justify-content:center;padding:24px}
+  .app{width:900px;border:1px solid #30363d;border-radius:12px;overflow:hidden;background:#0d1117}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#161b22;border-bottom:1px solid #30363d}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .tabs{display:flex;gap:2px;padding:0 10px;background:#161b22;border-bottom:1px solid #30363d}
+  .tab{padding:9px 16px;font-size:13px;color:#8b949e;border-bottom:2px solid transparent;cursor:pointer}
+  .tab.on{color:#e6edf3;border-bottom-color:#4da3ff}
+  .body{display:flex}
+  .rail{width:56px;display:flex;flex-direction:column;gap:7px;padding:10px 8px;background:#161b22;border-right:1px solid #30363d;align-items:center}
+  .rail button{width:36px;height:36px;border-radius:8px;background:#21262d;color:#e6edf3;border:1px solid #30363d;font-size:15px;cursor:pointer}
+  .rail button.pri{background:#1f6feb;border:none}
+  .col{padding:12px}
+  .cap{font-size:12px;color:#8b949e;margin-bottom:7px}
+  .blk{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:8px;margin-bottom:9px}
+  .blkhead{display:flex;justify-content:space-between;font-size:11px;margin-bottom:6px}
+  .strip{display:flex;gap:5px;align-items:center}
+  .plane{text-align:center}
+  .plane canvas{width:44px;height:44px;border-radius:3px;display:block}
+  .plane div{font-size:9px;color:#6e7681;margin-top:2px}
+  .status{display:flex;align-items:center;gap:14px;padding:9px 12px;background:#161b22;border-top:1px solid #30363d;font-size:12px;color:#8b949e}
+  .pill{padding:2px 9px;border-radius:10px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bar">
+    <span class="dot" style="background:#ff5f56"></span><span class="dot" style="background:#ffbd2e"></span><span class="dot" style="background:#27c93f"></span>
+    <span style="margin-left:8px;font-size:13px;color:#8b949e">◎ radar3d — панель сцены</span>
+    <span style="margin-left:auto;font-size:12px;color:#3fb950">● ZMQ · localhost</span>
+  </div>
+  <div class="tabs">
+    <div class="tab on">Сцена</div><div class="tab">Квадраты</div><div class="tab">Треки</div><div class="tab">Настройки</div>
+  </div>
+  <div class="body">
+    <div class="rail">
+      <button title="Добавить цель">＋</button>
+      <button title="Убрать цель">－</button>
+      <button class="pri" title="Играть">▶</button>
+      <button title="Пауза">⏸</button>
+      <button title="Шаг">⏭</button>
+      <div style="flex:1"></div>
+      <button title="Снимок">◉</button>
+    </div>
+    <div class="col" style="flex:1.15;border-right:1px solid #30363d">
+      <div class="cap">Динамика движения — дальность в горизонте</div>
+      <svg viewBox="0 0 380 320" width="100%">
+        <rect width="380" height="320" fill="#0d1117"/>
+        <g stroke="#21262d"><line x1="42" y1="30" x2="42" y2="285"/><line x1="42" y1="285" x2="365" y2="285"/>
+          <line x1="122" y1="30" x2="122" y2="285"/><line x1="202" y1="30" x2="202" y2="285"/><line x1="282" y1="30" x2="282" y2="285"/>
+          <line x1="42" y1="95" x2="365" y2="95"/><line x1="42" y1="160" x2="365" y2="160"/><line x1="42" y1="225" x2="365" y2="225"/></g>
+        <text x="203" y="307" fill="#8b949e" font-size="10" text-anchor="middle">дальность R, м →</text>
+        <text x="14" y="160" fill="#8b949e" font-size="10" text-anchor="middle" transform="rotate(-90 14 160)">азимут / угол</text>
+        <polyline points="320,125 265,120 215,116 178,112" fill="none" stroke="#4da3ff" stroke-width="2.5"/><circle cx="178" cy="112" r="5" fill="#4da3ff"/><text x="156" y="104" fill="#4da3ff" font-size="10">ц1 cv</text>
+        <polyline points="335,215 270,216 210,220 158,224" fill="none" stroke="#3fb950" stroke-width="2.5"/><circle cx="158" cy="224" r="5" fill="#3fb950"/><text x="132" y="239" fill="#3fb950" font-size="10">ц2 markov</text>
+        <polyline points="305,72 245,84 202,100 175,122" fill="none" stroke="#f0883e" stroke-width="2.5"/><circle cx="175" cy="122" r="5" fill="#f0883e"/><text x="205" y="70" fill="#f0883e" font-size="10">ц3 вираж</text>
+        <rect x="322" y="46" width="14" height="14" fill="none" stroke="#ff5555" stroke-width="2"/><text x="340" y="57" fill="#ff5555" font-size="10">заград</text>
+        <rect x="64" y="252" width="14" height="14" fill="none" stroke="#ffd23f" stroke-width="2"/><text x="82" y="263" fill="#ffd23f" font-size="10">гребёнка</text>
+      </svg>
+    </div>
+    <div class="col" style="flex:1">
+      <div class="cap">Квадраты 16×16 + подписи (окрестность ±N)</div>
+      <div id="sqwrap"></div>
+    </div>
+  </div>
+  <div class="status">
+    <span>⏱ такт <b style="color:#e6edf3">23</b></span><span>◎ целей 3</span>
+    <span style="margin-left:auto">помехи</span>
+    <span class="pill" style="background:#3a1d1d;color:#ff7b7b;border:1px solid #5a2a2a">barrage</span>
+    <span class="pill" style="background:#3a331d;color:#ffd23f;border:1px solid #5a4f2a">comb</span>
+    <label>±N <input type="range" min="1" max="9" step="2" value="5" id="nn"/> <b id="nnv" style="color:#e6edf3">5</b></label>
+  </div>
+</div>
+<script>
+function heat(v){var s=[[13,17,23],[30,58,120],[40,120,140],[90,180,90],[240,200,40],[220,70,40]];var x=Math.max(0,Math.min(1,v))*(s.length-1);var i=Math.floor(x),f=x-i,a=s[i],b=s[Math.min(i+1,s.length-1)];return 'rgb('+Math.round(a[0]+(b[0]-a[0])*f)+','+Math.round(a[1]+(b[1]-a[1])*f)+','+Math.round(a[2]+(b[2]-a[2])*f)+')';}
+function sq(px,py,noise){var c=document.createElement('canvas');c.width=c.height=64;var g=c.getContext('2d'),n=16,p=4;for(var i=0;i<n;i++)for(var j=0;j<n;j++){var d=Math.hypot(i-px,j-py);var v=Math.exp(-d*d/3)*0.95+Math.random()*noise;g.fillStyle=heat(v);g.fillRect(i*p,(n-1-j)*p,p,p);}return c;}
+var blocks=[{label:'цель #1',bin:240,px:12,py:10,tok:'#1',col:'#4da3ff'},{label:'цель #2',bin:286,px:3,py:2,tok:'#2',col:'#3fb950'},{label:'заград (barrage)',bin:422,px:14,py:13,tok:'∎',col:'#ff7b7b',jam:true}];
+var wrap=document.getElementById('sqwrap');
+blocks.forEach(function(b){var row=document.createElement('div');row.className='blk';
+  var h=document.createElement('div');h.className='blkhead';h.style.color=b.col;h.innerHTML='<span>'+b.label+'</span><span style="color:#8b949e">бин '+b.bin+' · R≈'+(b.bin*12.5|0)+' м</span>';row.appendChild(h);
+  var strip=document.createElement('div');strip.className='strip';
+  for(var k=-2;k<=2;k++){var cell=document.createElement('div');cell.className='plane';var cv=sq(b.px+k*0.15,b.py,b.jam?0.25:0.12);if(k===0){cv.style.outline='1.5px solid '+b.col;}else{cv.style.opacity=.6;}var lb=document.createElement('div');lb.textContent=b.bin+k;cell.appendChild(cv);cell.appendChild(lb);strip.appendChild(cell);}
+  var tb=document.createElement('div');tb.style.cssText='margin-left:6px;font-size:10px;color:#8b949e';tb.innerHTML='<span style="color:'+b.col+'">токен '+b.tok+'</span><br>kx,ky';strip.appendChild(tb);
+  row.appendChild(strip);wrap.appendChild(row);});
+var nn=document.getElementById('nn');nn.addEventListener('input',function(){document.getElementById('nnv').textContent=nn.value;});
+</script>
+</body>
+</html>
