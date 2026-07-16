@@ -29,6 +29,17 @@ cnn = [
 viz = [
     "plotly>=6",
 ]
+# Сокет-панель (P6): ZMQ Observer + msgpack-транспорт + Dear PyGui десктоп-панель +
+# websockets-шлюз для web/ дашборда. `dearpygui` НЕ ставится в headless-среде без
+# дисплея (см. .claude/rules -- CI/сборка сервера тестируется без него, panel_app.py
+# импортирует dearpygui под try/except -- core.runtime/core.graphics.panel работают
+# и без него, кроме собственно GUI-окна).
+panel = [
+    "pyzmq>=26",
+    "msgpack>=1.0",
+    "dearpygui>=1.11",
+    "websockets>=12",
+]
 dev = [
     "ruff>=0.5.0",
     "mypy>=1.10.0",

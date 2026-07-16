@@ -1,8 +1,35 @@
 # 🔄 IN_PROGRESS
 
 > Короткий указатель на активную задачу (1–5 строк). Детали — в `TASK_<topic>_<phase>.md`.
+>
+> 🤝 **Передача дел (2026-07-15, продолжать на Linux):** `sessions/2026-07-15_HANDOFF_P3P4_to_P6.md`.
+> P1–P5 ✅, P3+P4 приняты в этой сессии. Остался **P6** (сокет-панель). Не закоммичено (Alex пушит).
+> ⚠️ Перед git: `rm -f .git/index.lock _sync_test.txt`.
 
 ## Сейчас в работе
+
+- 🔨 **P6 · Движение тела в 3D-кубе + помехи + сокет-панель** (2026-07-15) — спека
+  **финализирована** (сверена с патентом гл.3+4-бис; ревью F1–F10).
+  → спека [`specs/body_motion_3d_2026-07-15/SPEC.md`](../specs/body_motion_3d_2026-07-15/SPEC.md)
+  + `scheme.svg`; ревью [`specs/body_motion_3d_review_2026-07-15.md`](../specs/body_motion_3d_review_2026-07-15.md).
+  - **Ключевое:** ЛЧМ = 2 раздельных FFT (дальностный глобальный + угловой 16×16, **без окна**);
+    АМ = локальный 3D-FFT по окну `16×16×D` (шаг 8/16/32/64). Общее — куб-примитив + токенизатор.
+    `DataContext` = базовый класс обмена (расширяем; шина `Blackboard`/Observer отдельно, SRP).
+    Транспорт ZMQ+MessagePack. Движение: cv+Markov, без рывков. Проектируем сразу под C++.
+  - **Таски (Sonnet-код → глубокое ревью Кодо):**
+    P1 [`TASK_body_motion_p1.md`](TASK_body_motion_p1.md) — фундамент (ProjectConfig+шина+motion). ⏳
+    P2 [`TASK_body_motion_p2.md`](TASK_body_motion_p2.md) — splat цели → входы веток 16×16×N. ⏳
+    P3 [`TASK_body_motion_p3.md`](TASK_body_motion_p3.md) — помехи (заград+гребёнка). ✅ ПРИНЯТО (ревью Кодо 2026-07-15).
+    P4 [`TASK_body_motion_p4.md`](TASK_body_motion_p4.md) — несколько целей (Composite). ✅ ПРИНЯТО (ревью Кодо 2026-07-15).
+    P5 [`TASK_body_motion_p5.md`](TASK_body_motion_p5.md) — WaveformToCube (ЛЧМ 2FFT / АМ 3D-FFT). ⏳
+    P6 [`TASK_body_motion_p6.md`](TASK_body_motion_p6.md) — сокет-панель (ZMQ Observer + Dear PyGui). ✅ ПРИНЯТО (ревью Кодо 2026-07-16).
+    🎉 **body_motion P1–P6 ПОЛНОСТЬЮ ЗАКРЫТ.**
+  - **🔬 Глубокий анализ тасков (2026-07-15):** [`specs/body_motion_3d_tasks_review_2026-07-15.md`](../specs/body_motion_3d_tasks_review_2026-07-15.md)
+    — 9 находок, все внесены. Ключевое: **A9** — P2 реюзит готовые Python-генераторы `waveforms/`
+    (`WaveformFactory`+`render`+`SignalField`+`NumpyBackend`, вчера, 48+ тестов), не изобретает splat;
+    numpy не применяет `tau_s` → дальность окном; дечирпа нет → добавить в P5. Также A1 (реюз `Scene`),
+    A4 (ЛЧМ=`LfmWaveform`/АМ=`AmWaveform`), A5 (YAML через `run_workspace`).
+  - **Процесс:** ревью тасков → skill с Sonnet-агентами по таскам → глубокое ревью Кодо. Старт — S1.
 
 - ✅ **Настройка конфигурации проекта** (2026-06-22) — перенос правил/хуков/MCP/стиля из
   DSP-GPU + rag-mentor, починен баг `Core/` → `core/`. **Готово.**

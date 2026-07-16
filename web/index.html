@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>radar3d -- веб-дашборд (P6)</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #0d1117; color: #c9d1d9; font-family: system-ui, sans-serif; }
+  header { padding: 8px 12px; background: #161b22; border-bottom: 1px solid #30363d;
+           display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  header input[type="text"] { background: #0d1117; color: #c9d1d9; border: 1px solid #30363d;
+                               padding: 4px 8px; width: 260px; }
+  header button { background: #238636; color: white; border: none; padding: 6px 12px;
+                  border-radius: 4px; cursor: pointer; }
+  main { display: grid; grid-template-columns: 1fr 340px; gap: 8px; padding: 8px; height: calc(100vh - 60px); }
+  #scene3d { background: #0d1117; border: 1px solid #30363d; }
+  aside { display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+  fieldset { border: 1px solid #30363d; border-radius: 6px; }
+  legend { color: #8b949e; padding: 0 4px; }
+  #squares_canvas { background: #0d1117; border: 1px solid #30363d; image-rendering: pixelated; }
+  #tracks_info, #log { white-space: pre-wrap; font-family: monospace; font-size: 12px;
+                        max-height: 160px; overflow: auto; }
+</style>
+</head>
+<body>
+<header>
+  <strong>radar3d -- панель (веб, P6)</strong>
+  <label>WS: <input id="ws_url" type="text" value="ws://127.0.0.1:8765" /></label>
+  <button id="connect_btn">Подключиться</button>
+  <label>+-N плоскостей: <input id="neighbor_planes" type="range" min="0" max="20" value="5" />
+    <span id="neighbor_planes_label">5</span></label>
+</header>
+<main>
+  <div id="scene3d"></div>
+  <aside>
+    <fieldset>
+      <legend>Квадрат 16x16 (reduce по дальности)</legend>
+      <canvas id="squares_canvas" width="320" height="320"></canvas>
+    </fieldset>
+    <fieldset>
+      <legend>Треки (targets + jammers)</legend>
+      <div id="tracks_info">(нет данных)</div>
+    </fieldset>
+    <fieldset>
+      <legend>Лог</legend>
+      <div id="log"></div>
+    </fieldset>
+  </aside>
+</main>
+
+<!-- Three.js (3D-сцена) -- CDN, без сборки -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<!-- @msgpack/msgpack (декод msgpack-кадров транспорта, N2 -- стандартный msgpack, НЕ py-ext) -->
+<script src="https://cdn.jsdelivr.net/npm/@msgpack/msgpack@3.0.0-beta2/dist.umd.min.js"></script>
+<script>
+  // UMD-бандл @msgpack/msgpack публикует себя как `window.MessagePack`.
+  if (typeof MessagePack === "undefined" && typeof msgpack !== "undefined") {
+    window.MessagePack = msgpack;
+  }
+</script>
+<script src="codec.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
