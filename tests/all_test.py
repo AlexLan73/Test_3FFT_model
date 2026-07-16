@@ -32,13 +32,19 @@ from tests.test_runtime import (
 )
 from tests.test_smoke import SmokeTests
 from tests.test_snr import SnrTests
+from tests.test_tokenizer import (
+    FeatureSeparationTests,
+    RangeAssemblyTests,
+    VolumeTokenizerTests,
+)
 from tests.test_waveform_to_cube import AmToCubeTests, LfmToCubeTests, SquareViewTests
 
 SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests, GeneratorsTests,
           ProjectConfigTests, MessageBusTests, MotionModelTests, KinematicsTests,
           VolumeBuilderTests, LfmToCubeTests, AmToCubeTests, SquareViewTests,
           JammerSceneTests, MultiTargetTests,
-          TransportTests, CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests]
+          TransportTests, CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests,
+          FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests]
 
 
 def main() -> int:

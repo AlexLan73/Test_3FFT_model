@@ -33,7 +33,13 @@ from core.config import ProjectConfig  # noqa: E402
 from core.data_context import DataContext  # noqa: E402
 from core.generators import TactSequence  # noqa: E402
 from core.graphics import FigureWriter  # noqa: E402
-from core.motion import ConstantVelocity, Kinematics, TargetState, WeavingManeuver  # noqa: E402
+from core.motion import (  # noqa: E402
+    ConstantVelocity,
+    Kinematics,
+    MarkovDrift,
+    TargetState,
+    WeavingManeuver,
+)
 
 OUT_DIR = os.path.join("graphics", "body_motion", "p1_trajectory")
 N_TACTS = 90
@@ -65,6 +71,18 @@ def _random_maneuver(rng: np.random.Generator) -> WeavingManeuver:
         az_amp=float(rng.uniform(0.30, 0.75)), az_period=float(rng.uniform(16.0, 28.0)),
         el_amp=float(rng.uniform(0.15, 0.38)), el_period=float(rng.uniform(10.0, 20.0)),
         speed_amp=float(rng.uniform(20.0, 48.0)), speed_period=float(rng.uniform(20.0, 34.0)))
+
+
+def _random_markov(rng: np.random.Generator) -> MarkovDrift:
+    """Марков-блуждание курса/скорости с аэро-лимитами (`max_turn_rate`/`max_accel`
+    клипуют приращения -- перегрузка ограничена, без рывков). Шумы курса/скорости
+    рандомизируем в разумных пределах -- каждый полёт выглядит иначе, но остаётся
+    гладким. Направление меняется случайно (Марков), но в рамках аэродинамики."""
+    return MarkovDrift(
+        max_turn_rate=float(rng.uniform(0.045, 0.065)),   # аэро-лимит |dAz|,|dEl| рад/такт
+        max_accel=float(rng.uniform(0.8, 1.6)),           # аэро-лимит |dv/dt| м/с^2
+        heading_noise_std=float(rng.uniform(0.045, 0.065)),  # ~ на уровне кэпа -> курс заметно гуляет
+        speed_noise_std=float(rng.uniform(0.3, 0.6)))
 
 
 def _run_track(model, kinematics: Kinematics, init: TargetState,
@@ -111,6 +129,9 @@ def main() -> None:
     parser.add_argument("--no-gif", action="store_true", help="не создавать GIF (только PNG)")
     parser.add_argument("--seed", type=int, default=None,
                         help="фиксировать ГСЧ (по умолчанию случайно -> каждый запуск другой)")
+    parser.add_argument("--motion", choices=("markov", "weaving"), default="markov",
+                        help="модель движения: markov (случайный курс + аэро-лимиты) "
+                             "или weaving (детерминированная змейка)")
     args = parser.parse_args()
 
     cfg = ProjectConfig()
@@ -122,8 +143,14 @@ def main() -> None:
 
     rng = np.random.default_rng(args.seed if args.seed is not None else SEED)
     init = _random_initial_state(rng)
-    maneuver = _random_maneuver(rng)
-    print(f"Старт (ГСЧ): pos={np.round(init.pos, 0)} vel={np.round(init.vel, 1)}")
+    if args.motion == "markov":
+        maneuver = _random_markov(rng)
+        track_label = ("манёвр: MarkovDrift (случайный курс, аэро-лимиты "
+                       f"turn={maneuver.max_turn_rate:.3f} рад/такт, accel={maneuver.max_accel:.1f} м/с²)")
+    else:
+        maneuver = _random_maneuver(rng)
+        track_label = "манёвр: WeavingManeuver (змейка+горка+скорость)"
+    print(f"Старт (ГСЧ): pos={np.round(init.pos, 0)} vel={np.round(init.vel, 1)}; движение={args.motion}")
 
     kx_cv, ky_cv, r_cv = _run_track(ConstantVelocity(), kinematics, init,
                                     np.random.default_rng(0), data_context=None)
@@ -149,8 +176,7 @@ def main() -> None:
     _style_axes(ax, r_all, kx_all, ky_all)
     ax.plot(r_cv, kx_cv, ky_cv, color=_REF_COLOR, linestyle="--", linewidth=1.3,
             label="эталон: ConstantVelocity")
-    ax.plot(r_md, kx_md, ky_md, color=_TRACK_COLOR, linewidth=2.4,
-            label="манёвр: WeavingManeuver (змейка+горка+скорость)")
+    ax.plot(r_md, kx_md, ky_md, color=_TRACK_COLOR, linewidth=2.4, label=track_label)
     ax.scatter([r_md[0]], [kx_md[0]], [ky_md[0]], color=_START_COLOR, s=70,
                label="старт", depthshade=False)
     ax.scatter([r_md[-1]], [kx_md[-1]], [ky_md[-1]], color=_FINISH_COLOR, s=70,
