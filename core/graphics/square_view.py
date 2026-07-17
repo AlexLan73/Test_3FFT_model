@@ -1,9 +1,10 @@
-"""SquareView -- квадрат 16x16 (reduce по range) + argmax + окрестность +-N (Strategy, P5).
+"""SquareView -- прямоугольник i×j (reduce по range) + argmax + окрестность +-N (Strategy, P5).
 
 Контрольный вид (упрощённый) над общим низом `SpectralCube` (kx,ky,range) -- ОБЩИЙ для
-обеих веток заполнения (`LfmToCube`/`AmToCube`, SPEC §2): «reduce по range-оси -> квадрат
-16x16 энергии + argmax дальности» -- стадии Q1/Q2/Q3 (SPEC §5: профиль по Z / угловые
-плоскости / токены). Полный объёмный токенизатор (OS-CFAR 3D + 3D-признаки, гл.4-бис) --
+обеих веток заполнения (`LfmToCube`/`AmToCube`, SPEC §2): «reduce по range-оси -> карта
+i×j энергии + argmax дальности» -- стадии Q1/Q2/Q3 (SPEC §5: профиль по Z / угловые
+плоскости / токены). Апертура необязательно квадратная (`nx != ny` допустимо, F9).
+Полный объёмный токенизатор (OS-CFAR 3D + 3D-признаки, гл.4-бис) --
 этап детектора, НЕ здесь (SPEC §2: "прототип -- контрольный вид").
 """
 from __future__ import annotations
@@ -29,7 +30,7 @@ class SquareToken:
 
 @dataclass(frozen=True)
 class SquareView:
-    """reduce по 3-й (range) оси -> квадрат 16x16 (kx,ky) + argmax + блок окрестности +-N.
+    """reduce по 3-й (range) оси -> карта i×j (kx,ky) + argmax + блок окрестности +-N.
 
     `reduce_mode`      -- "max" (пик по дальности, годится для точки/протяжённой цели)
                            или "sum" (энергия по дальности, годится для заграда -- полоса
@@ -46,7 +47,7 @@ class SquareView:
             raise ValueError(f"neighbor_planes не может быть отрицательным, получено {self.neighbor_planes}")
 
     def reduce_square(self, cube: SpectralCube) -> np.ndarray:
-        """Квадрат 16x16 (kx,ky) -- reduce по range-оси (`reduce_mode`)."""
+        """Карта i×j (kx,ky) -- reduce по range-оси (`reduce_mode`)."""
         mag = cube.magnitude
         if self.reduce_mode == "max":
             return mag.max(axis=2)

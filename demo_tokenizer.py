@@ -1,6 +1,6 @@
 """Демо токенизатора: подтверждение разделения классов по 6 признакам патента (§4.11).
 
-Строит 3 угловые карты 16×16 (цель / заград / шум) с Хэмминг-аподизацией (§4.3),
+Строит 3 угловые карты nx×ny (по умолчанию 16×16; цель / заград / шум) с Хэмминг-аподизацией (§4.3),
 считает `FeatureExtractor` (§4.5) и рисует карты + таблицу признаков против
 патентных коридоров. Это визуал-аналог `feat_scene.png` главы 4.
 
@@ -10,6 +10,7 @@
 Запуск:
     python demo_tokenizer.py
     python demo_tokenizer.py --seed 7
+    python demo_tokenizer.py --nx 6 --ny 15   # неквадратная апертура i×j (E5), паддинг до 2ⁿ
 """
 from __future__ import annotations
 
@@ -22,11 +23,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
+from core.config import ArrayConfig  # noqa: E402
 from core.graphics import FigureWriter  # noqa: E402
 from core.models.tokenizer import FeatureExtractor, RuleBasedTriage  # noqa: E402
 
 OUT_DIR = os.path.join("graphics", "body_motion", "p_tokenizer")
-N = 16
 
 _BG = "#0d1117"
 _FG = "#c9d1d9"
@@ -39,38 +40,49 @@ _PATENT = {
 }
 
 
-def _steer(kx: float, ky: float) -> np.ndarray:
-    x = np.arange(N)
-    return np.outer(np.exp(1j * 2 * np.pi * kx * x / N),
-                    np.exp(1j * 2 * np.pi * ky * x / N))
+def _steer(kx: float, ky: float, nx: int, ny: int) -> np.ndarray:
+    """Плоская волна на апертуре nx×ny (углы kx/ky в циклах решётки)."""
+    x = np.arange(nx)
+    y = np.arange(ny)
+    return np.outer(np.exp(1j * 2 * np.pi * kx * x / nx),
+                    np.exp(1j * 2 * np.pi * ky * y / ny))
 
 
-def _angular_power(aperture: np.ndarray) -> np.ndarray:
-    """P = |FFT2(апертура · Хэмминг)|² с fftshift (§4.3-4.4)."""
-    w = np.hamming(N)
-    window = np.outer(w, w)
-    spectrum = np.fft.fftshift(np.fft.fft2(aperture * window))
+def _angular_power(aperture: np.ndarray, nx: int, ny: int) -> np.ndarray:
+    """P = |FFT2(апертура · Хэмминг)|² с fftshift (§4.3-4.4).
+
+    Zero-pad до 2ⁿ по каждой угловой оси независимо (`ArrayConfig.padded_shape()`,
+    §E5/F9) -- при дефолтных nx=ny=16 паддинг no-op.
+    """
+    window = np.outer(np.hamming(nx), np.hamming(ny))
+    pow2x, pow2y = ArrayConfig(nx, ny).padded_shape()
+    spectrum = np.fft.fftshift(np.fft.fft2(aperture * window, s=(pow2x, pow2y)))
     return np.abs(spectrum) ** 2
 
 
-def _scenes(rng: np.random.Generator) -> dict[str, np.ndarray]:
-    target = _steer(3, -2) + 0.02 * (rng.standard_normal((N, N)) + 1j * rng.standard_normal((N, N)))
-    barrage = rng.standard_normal((N, N)) + 1j * rng.standard_normal((N, N))
+def _scenes(rng: np.random.Generator, nx: int, ny: int) -> dict[str, np.ndarray]:
+    shape = (nx, ny)
+    target = _steer(3, -2, nx, ny) + 0.02 * (rng.standard_normal(shape) + 1j * rng.standard_normal(shape))
+    barrage = rng.standard_normal(shape) + 1j * rng.standard_normal(shape)
     for _ in range(8):
-        barrage = barrage + 3.0 * _steer(rng.uniform(-7, 7), rng.uniform(-7, 7))
-    noise = rng.standard_normal((N, N)) + 1j * rng.standard_normal((N, N))
+        barrage = barrage + 3.0 * _steer(rng.uniform(-7, 7), rng.uniform(-7, 7), nx, ny)
+    noise = rng.standard_normal(shape) + 1j * rng.standard_normal(shape)
     return {"цель": target, "заград": barrage, "шум": noise}
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Демо токенизатора: разделение классов по §4.11.")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--nx", type=int, default=16, help="число элементов решётки по X (дефолт 16)")
+    parser.add_argument("--ny", type=int, default=16, help="число элементов решётки по Y (дефолт 16)")
     args = parser.parse_args()
 
     rng = np.random.default_rng(args.seed)
     extractor = FeatureExtractor()
     triage = RuleBasedTriage()
-    scenes = _scenes(rng)
+    scenes = _scenes(rng, args.nx, args.ny)
+    pow2x, pow2y = ArrayConfig(args.nx, args.ny).padded_shape()
+    print(f"Апертура: nx×ny={args.nx}×{args.ny}, padded={(pow2x, pow2y)}")
 
     plt.rcParams.update({
         "figure.facecolor": _BG, "axes.facecolor": _BG, "savefig.facecolor": _BG,
@@ -83,7 +95,7 @@ def main() -> None:
                  color=_FG, fontsize=13)
 
     for col, (name, aperture) in enumerate(scenes.items()):
-        power = _angular_power(aperture)
+        power = _angular_power(aperture, args.nx, args.ny)
         f = extractor.extract(power)
         label, score = triage.classify(f)
 

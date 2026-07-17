@@ -1,15 +1,16 @@
 """WaveformToCube -- заполнение куба «угол×угол×дальность» (Strategy, P5, SPEC §2).
 
 Два РАЗНЫХ фронтенда (гл.3 ЛЧМ / гл.4-бис АМ) -- ветвится только заполнение,
-дальше выход обеих сводится к общему кубу `SpectralCube` (kx,ky,range) 16x16xL.
+дальше выход обеих сводится к общему кубу `SpectralCube` (kx,ky,range) nx×ny×L
+(после zero-pad углового FFT — N_pad_x×N_pad_y×L; дефолт 16×16 → 16×16, no-op).
 
 `LfmToCube` (точный, гл.3): ① глобальный дальностный `RangeFft` по всей оси Z
-(дечирп + rect FFT, БЕЗ окна) -- ② поячеечный `angular_fft` 16x16 с окном Хэмминга
+(дечирп + rect FFT, БЕЗ окна) -- ② поячеечный `angular_fft` nx×ny (паддинг до 2ⁿ) с окном Хэмминга
 по апертуре -- `|·|` берётся только ПОСЛЕ углового FFT (комплексные данные держим
 до этого момента).
 
 `AmToCube` (грубый, гл.4-бис): локальный `Fft3DModel.fftn` по скользящему окну
-16x16xD, шаг 8/16/32/64 (нахлёст ½ дефолт) -- реюз `Fft3DModel` "как есть" (A6:
+nx×ny×D, шаг 8/16/32/64 (нахлёст ½ дефолт) -- реюз `Fft3DModel` "как есть" (A6:
 для АМ полный 3D-FFT по окну -- ровно то, что он и делает).
 
 ⚠️ A9-gap1/патент-фикс инъекции цели для ЛЧМ (не здесь -- см. `build_lfm_target_volume`
@@ -43,7 +44,7 @@ C_LIGHT = 299_792_458.0  # м/с (совпадает с core.motion.kinematics.C
 
 
 class WaveformToCube(Protocol):
-    """Strategy: сырой объём (nx,ny,N) -> куб `SpectralCube` (kx,ky,range) 16x16xL."""
+    """Strategy: сырой объём (nx,ny,N) -> куб `SpectralCube` (kx,ky,range) nx×ny×L (pad 2ⁿ)."""
 
     def fill(self, volume: np.ndarray, cfg: ProjectConfig) -> SpectralCube: ...
 
@@ -137,7 +138,7 @@ _DEFAULT_AM_WINDOWS = AxisWindows(HammingWindow(), HammingWindow(), HannWindow()
 
 @dataclass(frozen=True)
 class AmToCube:
-    """АМ-фронтенд (грубый, гл.4-бис): локальный 3D-FFT по скользящему окну 16x16xD.
+    """АМ-фронтенд (грубый, гл.4-бис): локальный 3D-FFT по скользящему окну nx×ny×D.
 
     `depth`  -- D, 16..256 (дефолт 16).
     `step`   -- шаг скольжения 8/16/32/64 (дефолт 8 -> нахлёст 50% при depth=16).

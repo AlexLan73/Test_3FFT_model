@@ -32,7 +32,7 @@ class ProjectConfig:
 
     # --- P6: ветвление ЛЧМ/АМ + рантайм-параметры ---------------------------
     modulation: str = "lfm"          # "lfm" | "am" (выбор фронтенда, SPEC §1/§2)
-    am_window_depth: int = 16        # D (16..256), только АМ (локальный 3D-FFT окно 16x16xD)
+    am_window_depth: int = 16        # D (16..256), только АМ (локальный 3D-FFT окно nx×ny×D)
     am_step: int = 8                 # 8/16/32/64, только АМ (дефолт D/2 -> overlap 50%)
     n_pulses: int = 64               # slow-time (Доплер, заглушка P6)
     transport_endpoint: str = "tcp://127.0.0.1:5556"

@@ -10,11 +10,11 @@
 Пирамида типов (по образцу `Field/Cell/Element` из `PyPanelAntennas`, N6 -- образец
 недоступен в среде, схема написана по описанию задачи, не скопирована):
 
-  `Cell`   -- одна клетка квадрата 16x16: нормированное значение (0..1) для colormap.
+  `Cell`   -- одна клетка карты i×j: нормированное значение (0..1) для colormap.
   `Field`  -- ОДНА плоскость дальности (range-бин): сетка `Cell` (nx*ny) + номер бина.
   `SignalBlock` -- закладка +-N ОДНОГО сигнала (цель ИЛИ заград): "3 ряда" (SPEC §5):
       1) `fields`   -- теплокарты плоскостей K-N..K+N вокруг сигнала,
-      2) `location` -- (ix,iy), где сигнал сидит в квадрате 16x16,
+      2) `location` -- (ix,iy), где сигнал сидит в карте i×j,
       3) `tokens`   -- точки-токены рядом с сигналом (переиспользован `SquareToken`,
                        P5, `core/graphics/square_view.py` -- второй токенайзер не плодим).
 
@@ -34,7 +34,7 @@ from ..square_view import SquareToken, SquareView
 
 @dataclass(frozen=True)
 class Cell:
-    """Одна клетка квадрата 16x16: позиция + нормированное (0..1) значение."""
+    """Одна клетка карты i×j: позиция + нормированное (0..1) значение."""
 
     ix: int
     iy: int
@@ -163,7 +163,7 @@ class PanelModel:
 
     # -- производные структуры для GUI --------------------------------------------
     def full_square(self) -> np.ndarray | None:
-        """Квадрат 16x16 (reduce по дальности), как публикует `SceneServer` (канал 'squares')."""
+        """Карта i×j (reduce по дальности), как публикует `SceneServer` (канал 'squares')."""
         if self._cube is None:
             return None
         return self._view.reduce_square(self._cube)

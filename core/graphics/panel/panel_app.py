@@ -8,7 +8,7 @@
 Вся логика (закладка +-N, теплокарты, токены) -- в `panel_model.py` (GUI-free).
 Этот файл только: (1) тред Transport.subscribe -> `queue.Queue` (N3: SUB-тред НЕ
 трогает GUI напрямую), (2) `_drain()` каждый кадр вычитывает очередь и кормит
-`PanelModel`, (3) рисует окна (квадрат 16x16 + контролы + лог) поверх готовых
+`PanelModel`, (3) рисует окна (карта i×j + контролы + лог) поверх готовых
 структур модели.
 """
 from __future__ import annotations
@@ -43,7 +43,7 @@ def _value_to_color(value: float) -> tuple[int, int, int, int]:
 
 
 class PanelApp:
-    """Живая десктоп-панель (Dear PyGui): квадрат 16x16 + контролы + лог (Observer над `Transport`)."""
+    """Живая десктоп-панель (Dear PyGui): карта i×j + контролы + лог (Observer над `Transport`)."""
 
     def __init__(self, transport: Transport, cfg: ProjectConfig, model: PanelModel | None = None) -> None:
         if not _HAS_DEARPYGUI:
