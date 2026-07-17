@@ -2,9 +2,10 @@
 
 Публикует `cube` (сырой комплексный объём `(nx,ny,N)`, тот же канал/семантика,
 что `core.generators.volume.CUBE_CHANNEL`), `squares` (свёрнутый по дальности
-квадрат `(nx,ny)`, `SquareView.reduce_square`, P5) и `tracks` (примитивы -- см.
-`_targets_payload`/`_jammers_payload`) через инжектированный `Transport` (ZMQ/
-FanOut) на каждый такт. Команды панель->сервер (см. `commands.py`) приходят
+квадрат `(nx,ny)`, `SquareView.reduce_square`, P5), `tracks` (примитивы -- см.
+`_targets_payload`/`_jammers_payload`) и `tokens` (выход `VolumeTokenizer` +
+`assemble_range`, S5 -- см. `_tokens_payload`) через инжектированный `Transport`
+(ZMQ/FanOut) на каждый такт. Команды панель->сервер (см. `commands.py`) приходят
 асинхронно из фонового треда транспорта, копятся в очереди и применяются к
 `SceneState` В НАЧАЛЕ следующего `step()` (не мгновенно -- детерминированный
 порядок: один такт = применить накопленные команды -> продвинуть цели -> собрать
@@ -44,6 +45,7 @@ from ..generators import SceneModeler, VolumeBuilder
 from ..generators.tact_sequence import MultiTact, Tact
 from ..generators.waveforms import AmToCube, LfmToCube, WaveformToCube
 from ..graphics import SquareView
+from ..models.tokenizer import RangeVerdict, SliceToken, VolumeTokenizer, assemble_range
 from ..motion import Kinematics, MotionModel, TargetState
 from .commands import Command, decode_command
 from .transport import CMD_TOPIC, Transport
@@ -91,13 +93,14 @@ class SceneServer:
 
     def __init__(self, cfg: ProjectConfig, transport: Transport, state: SceneState,
                  builder: VolumeBuilder | None = None, modeler: SceneModeler | None = None,
-                 seed: int | None = None) -> None:
+                 seed: int | None = None, tokenizer: VolumeTokenizer | None = None) -> None:
         self._cfg = cfg
         self._kin = Kinematics(cfg)
         self._transport = transport
         self._state = state
         self._builder = builder or VolumeBuilder()
         self._modeler = modeler or SceneModeler()
+        self._tokenizer = tokenizer or VolumeTokenizer(window_l=1)
 
         seed_seq = np.random.SeedSequence(seed)
         build_seed, jam_seed = seed_seq.spawn(2)
@@ -167,9 +170,13 @@ class SceneServer:
         square = SquareView(reduce_mode="max", neighbor_planes=self._state.neighbor_planes)
         squares = square.reduce_square(cube)
 
+        tokens = self._tokenizer.tokenize(cube)
+        verdicts = assemble_range(tokens)
+
         self._transport.publish("cube", self._tact, vol)
         self._transport.publish("squares", self._tact, squares)
         self._transport.publish("tracks", self._tact, self._tracks_payload(multi_tact, cfg))
+        self._transport.publish("tokens", self._tact, self._tokens_payload(tokens, verdicts))
 
         self._tact += 1
         return multi_tact, vol
@@ -213,3 +220,37 @@ class SceneServer:
             jammers.append({"kind": "ham", "kx": ham_spec.kx if ham_spec else 0.0,
                              "ky": ham_spec.ky if ham_spec else 0.0})
         return jammers
+
+    def _tokens_payload(self, tokens: list[SliceToken],
+                         verdicts: list[RangeVerdict]) -> dict[str, object]:
+        """Выход `VolumeTokenizer`/`assemble_range` -> примитивы (N2: не numpy/dataclass), S5.
+
+        `codec.py` не умеет сериализовать dataclass/numpy внутри "value" -- каждое
+        поле `SliceToken`/`PeakInfo`/`FeatureVector`/`RangeVerdict` приводится к
+        float/int/str явно ДО publish.
+        """
+        tokens_payload = []
+        for tok in tokens:
+            tokens_payload.append({
+                "r": int(tok.r),
+                "label": str(tok.label),
+                "score": float(tok.score),
+                "peaks": [
+                    {"kx": float(p.kx), "ky": float(p.ky), "amp": float(p.amp), "edge": float(p.edge)}
+                    for p in tok.peaks
+                ],
+                "f": {
+                    "pr": float(tok.f.pr), "hoyer": float(tok.f.hoyer),
+                    "main_frac": float(tok.f.main_frac), "lobe_ratio": float(tok.f.lobe_ratio),
+                    "max_mean": float(tok.f.max_mean), "energy": float(tok.f.energy),
+                },
+            })
+        verdicts_payload = [
+            {
+                "kx": float(v.kx), "ky": float(v.ky), "kind": str(v.kind),
+                "lead_r": int(v.lead_r),
+                "period_dr": float(v.period_dr) if v.period_dr is not None else None,
+            }
+            for v in verdicts
+        ]
+        return {"tokens": tokens_payload, "verdicts": verdicts_payload}

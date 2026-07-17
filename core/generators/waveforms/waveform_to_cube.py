@@ -111,7 +111,7 @@ class LfmToCube:
     aperture_window: WindowFunction = field(default_factory=HammingWindow)
 
     def fill(self, volume: np.ndarray, cfg: ProjectConfig) -> SpectralCube:
-        nx, ny, n = volume.shape
+        n = volume.shape[2]
         fs, carrier, fdev = cfg.wave.fs, cfg.wave.carrier_hz, cfg.wave.fdev_hz
 
         ref = getX_numpy(fs, n, carrier, 1.0, 0.0, fdev, 1.0, tau=0.0)
@@ -123,8 +123,11 @@ class LfmToCube:
         angular = angular_fft(range_domain, aperture_window=self.aperture_window)
         magnitude = np.abs(angular)
 
-        kx = Axis("kx", np.arange(-nx // 2, nx // 2), centered=True)
-        ky = Axis("ky", np.arange(-ny // 2, ny // 2), centered=True)
+        # угловой FFT паддит нулями до 2ⁿ по каждой оси независимо (F9) -- оси kx/ky
+        # строим на padded-размерах, иначе длина оси не сойдётся с формой спектра
+        pow2x, pow2y = cfg.array.padded_shape()
+        kx = Axis("kx", np.arange(-pow2x // 2, pow2x // 2), centered=True)
+        ky = Axis("ky", np.arange(-pow2y // 2, pow2y // 2), centered=True)
         rng_axis = Axis("range", r_axis, centered=False)
         return SpectralCube(magnitude, kx, ky, rng_axis)
 

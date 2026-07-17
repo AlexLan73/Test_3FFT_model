@@ -60,6 +60,7 @@ class PanelApp:
         transport.subscribe("cube", self._on_frame)
         transport.subscribe("squares", self._on_frame)
         transport.subscribe("tracks", self._on_frame)
+        transport.subscribe("tokens", self._on_frame)
 
     # -- приём (N3: тред транспорта только кладёт в очередь, GUI не трогает) -----
     def _on_frame(self, topic: str, tact: int, payload: object) -> None:
@@ -75,6 +76,7 @@ class PanelApp:
     def _drain(self) -> None:
         """Вычитать всё накопленное в очереди -> покормить `PanelModel` (вызывается раз в кадр)."""
         pending_tracks: tuple[int, object] | None = None
+        pending_tokens: tuple[int, object] | None = None
         pending_cube: tuple[int, object] | None = None
         while True:
             try:
@@ -85,6 +87,8 @@ class PanelApp:
                 pending_cube = (tact, payload)
             elif topic == "tracks":
                 pending_tracks = (tact, payload)
+            elif topic == "tokens":
+                pending_tokens = (tact, payload)
             # "squares" -- сервер уже прислал свёрнутый вид; PanelModel пересчитывает
             # его сам из cube (`full_square`), отдельно не хранится (нет второго
             # источника истины -- дубли не копим).
@@ -97,6 +101,10 @@ class PanelApp:
             tact, payload = pending_tracks
             if isinstance(payload, dict):
                 self._model.ingest_tracks(tact, payload.get("targets", []), payload.get("jammers", []))
+        if pending_tokens is not None:
+            tact, payload = pending_tokens
+            if isinstance(payload, dict):
+                self._model.ingest_tokens(tact, payload.get("tokens", []), payload.get("verdicts", []))
 
     # -- команды (панель -> сервер, PUSH/PULL) -----------------------------------
     def _send(self, command: Command) -> None:

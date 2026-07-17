@@ -53,12 +53,13 @@ RangeVerdict = { kx, ky, kind: "target"|"comb"|"barrage", lead_r: int, period_dr
 
 ## 3. Проход 1 — признаки + триаж на срезе (гл.4 §4.3–4.8)
 
-Для каждого среза `P = |cube[:, :, r]|²` (M=256, S1=Σpᵢ, S2=Σpᵢ²):
+Для каждого среза `P = |cube[:, :, r]|²` (M=nx·ny — фактическое число угловых ячеек куба
+после zero-pad, для частного случая 16×16 → M=256; S1=Σpᵢ, S2=Σpᵢ²):
 
 | Признак | Формула (патент §4.5, ПРОВЕРЕНО) | цель / заград / шум (§4.11) |
 |---------|-----------------------------------|------------------------------|
 | **PR** | `S1² / S2` | 3.6 / 15–23 / 129 |
-| **Hoyer** | `(√M − S1/√S2)/(√M − 1)` | 0.94 / 0.81 / 0.31 |
+| **Hoyer** | `(√M − S1/√S2)/(√M − 1)` (M — фактический, см. выше) | 0.94 / 0.81 / 0.31 |
 | **MainFrac** | `Σ_{3×3 вокруг argmax} P / S1` | 0.98 / 0.40 / 0.07 |
 | **LobeRatio** | `Σ_{3×3 у 2-го лепестка} / Σ_{3×3 главный}` (2-й — вне охр. зоны 5×5) | 0.002 / 0.25 / 1.03 |
 | **MaxMean** | `max(P)/mean(P)` | 123 / 22–42 / 5.4 |
@@ -66,7 +67,8 @@ RangeVerdict = { kx, ky, kind: "target"|"comb"|"barrage", lead_r: int, period_dr
 
 - **Порог выброса:** OS-CFAR (реюз идеи `core/models/anti_barrage/cfar.py` / `core/snr/estimator.py`).
   L=1 → 2D-CFAR по срезу; L>1 → **OS-CFAR 3D** (train/guard-воксели, гл.4-бис §4-бис.3:
-  главный лепесток **3×3×3**, охранная зона **5×5×5**, PR/Hoyer по вокселям).
+  главный лепесток **3×3×3**, охранная зона **5×5×5**, PR/Hoyer по вокселям). ⚠️ Зоны 3×3/5×5 —
+  граничный случай малых `N_pad` (nx или ny < 5): код усекает зону по краям куба (clip, не wrap).
 - **Пики (до 5):** локальные максимумы над CFAR-порогом, координаты `(kx,ky)` + `amp` + `edge`
   (кромка из соседних бинов `r±1` — «почти бесплатно», §4.6). >5 пиков → сам по себе «размазано».
 - **Триаж (гейт, не арбитр):** RuleBased по `f` → {noise/source/smeared} по разделяющим
@@ -117,8 +119,34 @@ RangeVerdict = { kx, ky, kind: "target"|"comb"|"barrage", lead_r: int, period_dr
 - **S2** — `CfarDetector` (2D срез, реюз anti_barrage) + поиск до 5 пиков + `edge`.
 - **S3** — OS-CFAR **3D** (объём L>1, главный 3×3×3 / охр. 5×5×5, гл.4-бис) + `VolumeTokenizer` Template Method.
 - **S4** — проход 2 (сборка по дальности: target/comb/barrage, автокорр Δr).
-- **S5** — RuleBased-триаж (`CubeClassifier`-LSP) + интеграция в `SceneServer`/панель
-  (заменить заглушку-токены на реальные `SliceToken`); визуал `feat_scene.png`.
+- **S5** — RuleBased-триаж (`CubeClassifier`-LSP, ✅ `triage.py`) + **интеграция в
+  `SceneServer`/панель** (⏳ осталось; Sonnet-агент оборвался на API-ошибке до S5).
+  Визуал `feat_scene.png` ✅ (Кодо).
+
+  **Под-план интеграции S5 (уточнён Кодо 2026-07-17, сверен с кодом):**
+  - **A · `core/runtime/scene_server.py`** — DI-инъекция `tokenizer: VolumeTokenizer | None`
+    в конструктор (дефолт `VolumeTokenizer(window_l=1)` — плоский путь под ЛЧМ-куб, гл.4;
+    L>1 позже для AM). В `step()` ПОСЛЕ `cube = to_cube.fill(...)`: `tokens =
+    tokenizer.tokenize(cube)`; `verdicts = assemble_range(tokens)`; публикация нового
+    канала `"tokens"` через `_tokens_payload(tokens, verdicts)`. Порядок публикации
+    станет `["cube","squares","tracks","tokens"]`.
+  - **Сериализация (N2 — примитивы, НЕ dataclass, см. `codec.py` «value»):**
+    `_tokens_payload` → `{"tokens":[{"r":int,"label":str,"score":float,
+    "peaks":[{"kx","ky","amp","edge"}],"f":{pr,hoyer,main_frac,lobe_ratio,max_mean,
+    energy}}], "verdicts":[{"kx","ky","kind","lead_r","period_dr"}]}`. По образцу
+    `_tracks_payload` (примитивы float/int/str, `period_dr` = float|None).
+  - **B · `core/graphics/panel/panel_model.py`** — `ingest_tokens(tact, tokens, verdicts)`
+    (хранит ПОСЛЕДНИЙ кадр, как `ingest_tracks`). `SignalBlock` +2 поля **аддитивно**
+    (НЕ ломать `tokens: tuple[SquareToken,...]` — контрольный вид, P6-тесты зелёные):
+    `slice_tokens: tuple[dict,...]` (реальные токены детектора рядом с сигналом, фильтр
+    по (kx,ky)) + `verdict: str | None` (kind прохода 2: target/comb/barrage под углом
+    сигнала). `signal_blocks` заполняет их из ingested-канала.
+  - **C · `tests/test_runtime.py`** — (1) обновить `test_step_publishes_cube_squares_tracks`
+    → ждать 4 канала вкл. `"tokens"` + проверить примитивность payload (msgpack-roundtrip,
+    N2); (2) `PanelModel`: `ingest_tokens` + `signal_blocks` несёт `slice_tokens`/`verdict`;
+    (3) регресс — старые P6/токенизатор-наборы зелёные, `SquareView`/`SquareToken` не тронуты.
+  - **Приоритеты:** работоспособность → корректность (сверка токенов с §4.11) → чистота.
+    🚫 pytest (правило 04) · 🚫 worktree (правило 03) · пишем в корень репо.
 
 P7 — порт в C++/HIP (гл.4-бис §4-бис.5, LDS/WMMA) — после обкатки python-прототипа.
 

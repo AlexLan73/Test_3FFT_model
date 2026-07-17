@@ -103,14 +103,18 @@ class SignalBlock:
     is_jammer: bool = False
     angle_kx: float | None = None
     angle_ky: float | None = None
+    slice_tokens: tuple[dict, ...] = ()
+    verdict: str | None = None
 
 
 class PanelModel:
     """GUI-free приёмник кадров сцены + закладка +-N плоскостей (Information Expert).
 
-    `ingest_cube`/`ingest_tracks` кладут ПОСЛЕДНИЙ полученный кадр (панель рисует
-    "живьём", не копит историю -- history/lerp между двумя последними тактами
-    делает `panel_app.py` через `lerp_field`, эта модель хранит только "текущее").
+    `ingest_cube`/`ingest_tracks`/`ingest_tokens` кладут ПОСЛЕДНИЙ полученный кадр
+    (панель рисует "живьём", не копит историю -- history/lerp между двумя
+    последними тактами делает `panel_app.py` через `lerp_field`, эта модель хранит
+    только "текущее"). `ingest_tokens` (S5) -- канал 'tokens' (`SceneServer._tokens_payload`),
+    используется `signal_blocks()` для доп. полей `SignalBlock.slice_tokens`/`verdict`.
     """
 
     def __init__(self, neighbor_planes: int = 5,
@@ -120,6 +124,8 @@ class PanelModel:
         self._tact: int = -1
         self._targets: list[dict] = []
         self._jammers: list[dict] = []
+        self._tokens: list[dict] = []
+        self._verdicts: list[dict] = []
 
     # -- закладка +-N -------------------------------------------------------
     @property
@@ -149,6 +155,12 @@ class PanelModel:
         self._targets = list(targets)
         self._jammers = list(jammers or [])
 
+    def ingest_tokens(self, tact: int, tokens: list[dict], verdicts: list[dict] | None = None) -> None:
+        """Приём канала 'tokens' (`SceneServer._tokens_payload`, S5) -- по образцу `ingest_tracks`."""
+        self._tact = tact
+        self._tokens = list(tokens)
+        self._verdicts = list(verdicts or [])
+
     # -- производные структуры для GUI --------------------------------------------
     def full_square(self) -> np.ndarray | None:
         """Квадрат 16x16 (reduce по дальности), как публикует `SceneServer` (канал 'squares')."""
@@ -160,6 +172,25 @@ class PanelModel:
         block = self._view.neighbor_block(cube, iz)  # (nx,ny,<=2N+1)
         lo = max(0, iz - self.neighbor_planes)
         return tuple(_field_from_plane(block[:, :, k], lo + k) for k in range(block.shape[2]))
+
+    def _slice_tokens_near(self, cube: SpectralCube, ix: int, iy: int) -> tuple[dict, ...]:
+        """`self._tokens` (канал 'tokens', S5), у которых хотя бы один пик попал в окно +-1 около (ix,iy)."""
+        near: list[dict] = []
+        for tok in self._tokens:
+            for peak in tok.get("peaks", []):
+                pix, piy = cube.index_of_angle(float(peak["kx"]), float(peak["ky"]))
+                if abs(pix - ix) <= 1 and abs(piy - iy) <= 1:
+                    near.append(tok)
+                    break
+        return tuple(near)
+
+    def _verdict_at(self, cube: SpectralCube, ix: int, iy: int) -> str | None:
+        """`kind` первого `self._verdicts`, чей угол совпадает с (ix,iy) сигнала (S5), иначе `None`."""
+        for verdict in self._verdicts:
+            vix, viy = cube.index_of_angle(float(verdict["kx"]), float(verdict["ky"]))
+            if vix == ix and viy == iy:
+                return str(verdict.get("kind"))
+        return None
 
     def signal_blocks(self, threshold_db: float = -10.0) -> list[SignalBlock]:
         """Один `SignalBlock` на цель (`tracks`) + один сводный на активные заграды.
@@ -183,6 +214,8 @@ class PanelModel:
             blocks.append(SignalBlock(
                 label=f"цель #{target.get('id', len(blocks) + 1)}",
                 fields=self._fields_around(cube, iz), location=(ix, iy), tokens=tokens,
+                slice_tokens=self._slice_tokens_near(cube, ix, iy),
+                verdict=self._verdict_at(cube, ix, iy),
             ))
 
         if self._jammers:
@@ -197,5 +230,7 @@ class PanelModel:
             blocks.append(SignalBlock(
                 label=f"заград ({kinds})", fields=self._fields_around(cube, iz), location=(ix, iy),
                 tokens=tokens, is_jammer=True, angle_kx=float(j["kx"]), angle_ky=float(j["ky"]),
+                slice_tokens=self._slice_tokens_near(cube, ix, iy),
+                verdict=self._verdict_at(cube, ix, iy),
             ))
         return blocks

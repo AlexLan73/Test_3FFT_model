@@ -17,8 +17,8 @@
 
 ## 📐 Математика (Doc/anti_barrage_math.md §3–4)
 
-- Сырой `datacube: complex [nx, ny, K]` → `X = datacube.reshape(M, K)`, `M = nx*ny = 256`.
-- Ковариация `R = X @ X.conj().T / K` (256×256, эрмитова).
+- Сырой `datacube: complex [nx, ny, K]` → `X = datacube.reshape(M, K)`, `M = nx·ny`.
+- Ковариация `R = X @ X.conj().T / K` (`M×M`, эрмитова).
 - EVD `R = Σ λ_m e_m e_mᴴ`; доминантные `n_jammers` собств. векторов = подпространство помехи.
 - Ортопроектор `P⊥ = I − E_J E_Jᴴ` (E_J — стек топ-собств. векторов, ортонормир.).
 - Очистка: `Y = P⊥ @ X`, вернуть `Y.reshape(nx, ny, K)`.

@@ -10,6 +10,7 @@ from pathlib import Path
 # Чтобы работала и форма `python tests/all_test.py`, и `python -m tests.all_test`.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from tests.test_aperture_ixj import ApertureIxjTests
 from tests.test_body_motion import (
     KinematicsTests,
     MessageBusTests,
@@ -42,6 +43,7 @@ from tests.test_waveform_to_cube import AmToCubeTests, LfmToCubeTests, SquareVie
 SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests, GeneratorsTests,
           ProjectConfigTests, MessageBusTests, MotionModelTests, KinematicsTests,
           VolumeBuilderTests, LfmToCubeTests, AmToCubeTests, SquareViewTests,
+          ApertureIxjTests,
           JammerSceneTests, MultiTargetTests,
           TransportTests, CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests,
           FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests]

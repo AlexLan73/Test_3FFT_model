@@ -1,4 +1,5 @@
-"""Пространственно-временна́я 3D-БПФ модель на сетке 16x16xN."""
+"""Пространственно-временна́я 3D-БПФ модель на сетке i×j×N (F9: угловые оси
+дополняются нулями до 2ⁿ независимо по X и Y, дефолт i=j=16 уже степень двойки)."""
 from __future__ import annotations
 
 import numpy as np
@@ -22,14 +23,15 @@ class Fft3DModel(RadarModel):
         return self._windows.apply(cube)
 
     def _transform(self, cube):
-        nx, ny = self._array.nx, self._array.ny
-        spectrum = np.fft.fftn(cube, s=(nx, ny, self._rng.n_fft))
+        pow2x, pow2y = self._array.padded_shape()
+        # угловые оси паддятся нулями до 2ⁿ (F9); дальность -- своя длина n_fft
+        spectrum = np.fft.fftn(cube, s=(pow2x, pow2y, self._rng.n_fft))
         # центрируем ТОЛЬКО угловые оси; дальность остаётся односторонней (tau>=0)
         return np.fft.fftshift(spectrum, axes=(0, 1))
 
     def _build_result(self, spectrum):
-        nx, ny = self._array.nx, self._array.ny
-        kx = Axis("kx", np.arange(-nx // 2, nx // 2), centered=True)
-        ky = Axis("ky", np.arange(-ny // 2, ny // 2), centered=True)
+        pow2x, pow2y = self._array.padded_shape()
+        kx = Axis("kx", np.arange(-pow2x // 2, pow2x // 2), centered=True)
+        ky = Axis("ky", np.arange(-pow2y // 2, pow2y // 2), centered=True)
         rng = Axis("range", np.arange(self._rng.n_fft), centered=False)
         return SpectralCube(np.abs(spectrum), kx, ky, rng)

@@ -340,20 +340,36 @@ class SceneServerStepTests(TestRunner):
         self.server = SceneServer(ProjectConfig(), self.transport, state,
                                   builder=None, seed=1)
 
-    def test_step_publishes_cube_squares_tracks(self) -> AssertionGroup:
+    def test_step_publishes_cube_squares_tracks_tokens(self) -> AssertionGroup:
         g = AssertionGroup("runtime.scene_server_step_publishes")
         result = self.server.step()
         g.add(result is not None, "step() с непустой сценой должен вернуть (MultiTact, vol)")
         topics = [p[0] for p in self.transport.published]
-        g.add(topics == ["cube", "squares", "tracks"], f"порядок публикации: {topics}")
+        g.add(topics == ["cube", "squares", "tracks", "tokens"], f"порядок публикации: {topics}")
 
         cube_payload = self.transport.published[0][2]
         g.add(cube_payload.shape == (16, 16, 1024), f"cube.shape неожиданный: {cube_payload.shape}")
         squares_payload = self.transport.published[1][2]
+        # дефолт ArrayConfig 16x16 уже 2^n -- при i×j (nx!=ny) здесь была бы padded_shape()
         g.add(squares_payload.shape == (16, 16), f"squares.shape неожиданный: {squares_payload.shape}")
         tracks_payload = self.transport.published[2][2]
         g.add(len(tracks_payload["targets"]) == 1, "tracks должен содержать 1 цель")
         g.add(tracks_payload["jammers"] == [], "без включённых помех jammers должен быть пуст")
+
+        tokens_payload = self.transport.published[3][2]
+        g.add(isinstance(tokens_payload, dict) and set(tokens_payload.keys()) == {"tokens", "verdicts"},
+              f"tokens-payload должен быть dict с ключами tokens/verdicts, получено {tokens_payload}")
+
+        try:
+            import msgpack  # noqa: F401
+        except ImportError:
+            raise SkipTest("msgpack не установлен -- roundtrip 'tokens' пропущен") from None
+        from core.runtime import codec
+
+        raw = codec.encode("tokens", 0, tokens_payload)
+        _topic, _tact, decoded = codec.decode(raw)
+        g.add(decoded == tokens_payload,
+              "roundtrip codec.encode/decode('tokens', ...) должен дать РАВНЫЙ dict (N2: чистые примитивы)")
         return g
 
     def test_step_with_no_targets_returns_none(self) -> AssertionGroup:
@@ -400,6 +416,34 @@ class PanelModelTests(TestRunner):
         grid = block.fields[2].as_grid()   # центральная плоскость блока (K-2..K+2 -> индекс 2 = K)
         g.add(grid.shape == (16, 16), f"as_grid() shape неожиданный: {grid.shape}")
         g.add(abs(float(grid.max()) - 1.0) < 1e-9, "нормировка -- максимум плоскости должен быть 1.0")
+        return g
+
+    def test_ingest_tokens_fills_slice_tokens_and_verdict(self) -> AssertionGroup:
+        """S5: `ingest_tokens` + `signal_blocks` -- target-блок получает `slice_tokens`/`verdict`."""
+        g = AssertionGroup("panel.ingest_tokens")
+        from core.graphics.panel import PanelModel
+
+        pm = PanelModel(neighbor_planes=2)
+        pm.ingest_cube(0, self.cube)
+        target_kx, target_ky = float(self.kx_axis.values[3]), float(self.ky_axis.values[5])
+        pm.ingest_tracks(0, targets=[{"id": 1, "kx": target_kx, "ky": target_ky, "range_bin": 30}])
+
+        fake_tokens = [{
+            "r": 30, "label": "source", "score": 0.9,
+            "peaks": [{"kx": target_kx, "ky": target_ky, "amp": 10.0, "edge": 0.0}],
+            "f": {"pr": 3.6, "hoyer": 0.94, "main_frac": 0.98, "lobe_ratio": 0.002,
+                  "max_mean": 5.0, "energy": 1.0},
+        }]
+        fake_verdicts = [{"kx": target_kx, "ky": target_ky, "kind": "target", "lead_r": 30,
+                           "period_dr": None}]
+        pm.ingest_tokens(0, fake_tokens, fake_verdicts)
+
+        blocks = pm.signal_blocks()
+        target_block = next(b for b in blocks if not b.is_jammer)
+        g.add(len(target_block.slice_tokens) == 1,
+              f"под углом цели должен найтись 1 slice_token, получено {len(target_block.slice_tokens)}")
+        g.add(target_block.verdict == "target",
+              f"verdict должен быть 'target', получено {target_block.verdict}")
         return g
 
     def test_neighbor_planes_clamped_at_cube_edge(self) -> AssertionGroup:

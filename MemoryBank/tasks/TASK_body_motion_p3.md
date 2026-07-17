@@ -21,7 +21,7 @@
   (6 помех P5) и `core/generators/jammers.py` (`DrfmComb`/`BarrageJammer`/`HamEmitter`).
 - 🔴 **A2 — домен `jammers.py` = RAW fast-time `(nx,ny,n_real)`, ДО дальностного FFT** (проверено:
   `BarrageJammer.contribute` → `steer[:,:,None]·noise[:]` формы `(nx,ny,n_real)`). Это **совпадает** с
-  входным объёмом P2 `16×16×N` → реюз **правомерен**, вставляем помеху **в raw-объём** (не в FFT-куб).
+  входным объёмом P2 `nx×ny×N` → реюз **правомерен**, вставляем помеху **в raw-объём** (не в FFT-куб).
   Сигнатура `contribute(grid, rng, rs)`: `rng` = **`RangeConfig`** (не Generator!), `rs` =
   `default_rng`. Согласовать `RangeConfig.n_real == N`. **Не трогать** `jammers.py`, вызывать как есть.
 - **Заград/гребёнка кладутся в raw-объём**; сигнатура «полоса во всех блоках дальности» (гл.4-бис)
@@ -119,7 +119,7 @@ optional-спеки в `core/config/scene_config.py`, демо `demo_body_motion
   → явный `NotImplementedError` (не тихий no-op).
 
 **Проверки:** тесты **9 ok/0 fail** (весь набор зелёный); ruff/mypy — 0 замечаний;
-демо пишет 4 файла в `graphics/body_motion/p3_jammers/`. Угловая карта 16×16 показывает
+демо пишет 4 файла в `graphics/body_motion/p3_jammers/`. Угловая карта `N_pad_x×N_pad_y` показывает
 **три разнесённых по углу источника** (заград rank-1 · цель · гребёнка); профиль дальности
 честно показывает сырой домен (разделение по дальности — задача P5 после дечирпа/FFT).
 Входы не мутируются, флаги вкл/выкл работают.
