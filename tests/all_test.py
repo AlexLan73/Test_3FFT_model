@@ -27,6 +27,7 @@ from tests.test_cfar import CfarTests
 from tests.test_clustering import ClusteringTests
 from tests.test_generators import GeneratorsTests
 from tests.test_graphics import GraphicsTests
+from tests.test_integration import FullPipelineIntegrationTests
 from tests.test_mvdr import MvdrNullerTests
 from tests.test_nuller import NullerTests
 from tests.test_roi_gate import RoiGateTests
@@ -60,7 +61,8 @@ SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, ClusteringTests, Sn
           EdgeArbiterTests, CodeArbiterTests, CombinedArbiterTests,
           NearestNeighborTrackerTests,
           BeamTargetingTests, CognitiveCycleTests, RoiGateTests,
-          DiagonalLoadingTests, AntiBarragePipelineTests, MvdrNullerTests]
+          DiagonalLoadingTests, AntiBarragePipelineTests, MvdrNullerTests,
+          FullPipelineIntegrationTests]
 
 
 def main() -> int:
