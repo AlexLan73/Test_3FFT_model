@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from tests.test_aperture_ixj import ApertureIxjTests
+from tests.test_arbiter import CodeArbiterTests, EdgeArbiterTests
 from tests.test_body_motion import (
     KinematicsTests,
     MessageBusTests,
@@ -46,7 +47,8 @@ SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests, Generator
           ApertureIxjTests,
           JammerSceneTests, MultiTargetTests,
           TransportTests, CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests,
-          FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests]
+          FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests,
+          EdgeArbiterTests, CodeArbiterTests]
 
 
 def main() -> int:
