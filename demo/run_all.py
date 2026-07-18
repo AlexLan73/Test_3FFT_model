@@ -23,10 +23,12 @@ from demo.ex1_am_line.example import Ex1AmLine
 from demo.ex1_am_line.matched import Ex1Matched
 from demo.ex1_am_line.stft_detect import Ex1StftDetect
 from demo.ex2_am_square.example import Ex2AmSquare
+from demo.ex3_am_barrage.example import Ex3AmBarrage
 
 
 def _build_examples() -> list[DemoRunner]:
-    return [Ex1AmLine(), Ex1Denoise(), Ex1StftDetect(), Ex1Matched(), Ex2AmSquare()]
+    return [Ex1AmLine(), Ex1Denoise(), Ex1StftDetect(), Ex1Matched(), Ex2AmSquare(),
+            Ex3AmBarrage()]
 
 
 def main() -> None:

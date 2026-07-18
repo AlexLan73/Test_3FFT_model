@@ -14,11 +14,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from demo.tests.test_denoise import Ex1DenoiseTests  # noqa: E402
 from demo.tests.test_ex2 import Ex2AmSquareTests  # noqa: E402
+from demo.tests.test_ex3 import Ex3EchoJammersTests  # noqa: E402
 from demo.tests.test_examples import Ex1AmLineTests  # noqa: E402
 from demo.tests.test_matched import Ex1MatchedTests  # noqa: E402
 from demo.tests.test_stft import Ex1StftTests  # noqa: E402
 
-_SUITES = [Ex1AmLineTests, Ex1DenoiseTests, Ex1StftTests, Ex1MatchedTests, Ex2AmSquareTests]
+_SUITES = [Ex1AmLineTests, Ex1DenoiseTests, Ex1StftTests, Ex1MatchedTests, Ex2AmSquareTests,
+           Ex3EchoJammersTests]
 
 
 def main() -> bool:

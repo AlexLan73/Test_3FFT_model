@@ -32,7 +32,13 @@ from .lfm import LfmWaveform
 from .mseq import DEFAULT_DEGREE, m_sequence, m_sequence_pow2
 from .phase_code import PhaseCodeWaveform
 from .placement import TimeWindow
-from .waveform_to_cube import AmToCube, LfmToCube, WaveformToCube, build_lfm_target_volume
+from .waveform_to_cube import (
+    AmToCube,
+    LfmToCube,
+    WaveformToCube,
+    build_lfm_target_volume,
+    build_pulse_echo_volume,
+)
 
 __all__ = [
     "SignalField", "Modulation", "AxisKind",
@@ -44,4 +50,5 @@ __all__ = [
     "WaveformFactory",
     "m_sequence", "m_sequence_pow2", "DEFAULT_DEGREE",
     "dechirp", "WaveformToCube", "LfmToCube", "AmToCube", "build_lfm_target_volume",
+    "build_pulse_echo_volume",
 ]

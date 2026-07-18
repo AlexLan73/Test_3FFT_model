@@ -3,6 +3,7 @@ from .cube_scatter import CubeScatterVisualizer
 from .layout import AxisLayout
 from .range_profile import RangeProfileVisualizer
 from .sampling import CubeSampler
+from .scene_points import SceneMarker, ScenePoint, ScenePointsVisualizer
 from .square_view import SquareToken, SquareView
 from .visualizer import Visualizer
 from .writer import FigureWriter
@@ -15,4 +16,5 @@ __all__ = [
     "Visualizer", "CubeScatterVisualizer", "AngularMapVisualizer",
     "RangeProfileVisualizer", "FigureWriter", "AxisLayout", "CubeSampler",
     "SquareView", "SquareToken",
+    "ScenePoint", "SceneMarker", "ScenePointsVisualizer",
 ]

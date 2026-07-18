@@ -54,7 +54,14 @@ from core.generators.waveforms import (  # noqa: E402
     WaveformSpec,
 )
 from core.models.tokenizer import VolumeTokenizer  # noqa: E402
-from demo.core import DemoContext, DemoReport, DemoRunner  # noqa: E402
+from demo.core import (  # noqa: E402
+    DemoContext,
+    DemoReport,
+    DemoRunner,
+    SceneMarker,
+    ScenePoint,
+    ScenePointsVisualizer,
+)
 from demo.ex1_am_line.denoise import estimate_noise_floor  # noqa: E402
 
 KIND_AM, KIND_RADIO = "am", "radio"
@@ -176,8 +183,11 @@ class CoarsePoint:
 def coarse_burst_points(volume: np.ndarray, cfg: ProjectConfig, p: Ex2Params) -> list[CoarsePoint]:
     """Грубый скан: дешёвый векторизованный порог по ПЕРВОМУ кубу (R1), без токенизатора.
 
-    Пол шума N̂ = `estimate_noise_floor(|куб0|²)` (реюз `demo/ex1_am_line/denoise.py`);
-    всплеск = max(|куб|²) > −N̂·ln(pfa) (Exp-статистика белого шума по мощности).
+    Пол шума N̂ = `estimate_noise_floor(|куб0|²)` (реюз `demo/ex1_am_line/denoise.py`).
+    Порог — на МАКСИМУМ куба (фикс ревью ex3): статистика максимума n ячеек Exp(N̂):
+    P(max > T) ≈ n·e^(−T/N̂) = pfa ⇒ **T = N̂·ln(n/pfa)** (а не −N̂·ln(pfa) на одну
+    ячейку — тот порог почти всегда пробивался шумовым максимумом куба и давал
+    всплеск в каждом окне после подавления помехи).
     """
     scanner = AmToCube(depth=p.coarse_depth, step=p.coarse_step)
     windows = scanner.scan(volume, cfg)
@@ -185,7 +195,8 @@ def coarse_burst_points(volume: np.ndarray, cfg: ProjectConfig, p: Ex2Params) ->
         return []
     first_power = windows[0][1].magnitude.astype(np.float64).ravel() ** 2
     n_hat = estimate_noise_floor(first_power)
-    threshold = -n_hat * math.log(p.pfa)
+    n_cells = first_power.size
+    threshold = n_hat * math.log(n_cells / p.pfa)
 
     points: list[CoarsePoint] = []
     for pos, cube in windows:
@@ -326,51 +337,40 @@ class _VolumeSink:
             self.volume = data  # type: ignore[assignment]
 
 
-# ── картинки (§5 спеки) ─────────────────────────────────────────────────────────
+# ── картинки (§5 спеки; сцены — через ОБЩУЮ базу ScenePointsVisualizer, правило 06) ──
+def _scene_points(points: list[CoarsePoint]) -> list[ScenePoint]:
+    """CoarsePoint (ex2) -> ScenePoint (общий VO базы рисования сцен)."""
+    return [ScenePoint(kx=pt.kx, ky=pt.ky, range_pos=float(pt.pos), db=pt.db) for pt in points]
+
+
+def _scene_markers(scene: tuple[ObjectSpec, ...]) -> tuple[SceneMarker, ...]:
+    """Истина сцены -> маркеры общей базы рисования."""
+    return tuple(SceneMarker(kx=obj.kx, ky=obj.ky, range_pos=float(obj.t0),
+                             label=f"{obj.name}:{obj.kind}/{obj.n_units}п") for obj in scene)
+
+
 def fig_scene3d(points: list[CoarsePoint], p: Ex2Params, title: str) -> Figure:
-    """3D scatter пиков грубого скана: оси (kx, ky, позиция окна), цвет=дБ; 6 объектов подписаны."""
-    fig = plt.figure(figsize=(9, 7))
-    ax = fig.add_subplot(111, projection="3d")
-    if points:
-        xs = [pt.kx for pt in points]
-        ys = [pt.ky for pt in points]
-        zs = [pt.pos for pt in points]
-        cs = [pt.db for pt in points]
-        sc = ax.scatter(xs, ys, zs, c=cs, cmap="turbo", vmin=-25, vmax=0, s=40, alpha=0.85,
-                        edgecolors="none")
-        fig.colorbar(sc, ax=ax, shrink=0.7, label="дБ")
-    for obj in p.scene:
-        ax.scatter([obj.kx], [obj.ky], [obj.t0], marker="^", color="k", s=70)
-        ax.text(obj.kx, obj.ky, obj.t0, f" {obj.name}:{obj.kind}/{obj.n_units}п", fontsize=7)
-    ax.set_xlabel("kx (бины)")
-    ax.set_ylabel("ky (бины)")
-    ax.set_zlabel("позиция окна (отсчёт)")
-    ax.set_title(title)
-    ax.view_init(18, -60)
+    """3D-сцена через общий `ScenePointsVisualizer` (дальность/позиция ПО ГОРИЗОНТУ,
+    раскладка `AxisLayout.range_in_depth()` — как в базовой графике, не изобретаем)."""
+    fig = ScenePointsVisualizer().render(_scene_points(points), _scene_markers(p.scene), title)
     fig.tight_layout()
     return fig
 
 
 def fig_scene3d_noise_inset(points: list[CoarsePoint], p: Ex2Params, snr_db: float) -> Figure:
-    """Врезки с шумом: 8-периодные объекты (B, E) при SNR из конфига, SNR в заголовке."""
+    """Врезки с шумом (8-периодные B, E — решение Alex §0.4): тот же общий визуализатор,
+    по панели на объект (`ax=` контракт), точки — окрестность объекта."""
     targets = [obj for obj in p.scene if obj.n_units == 8]
-    fig = plt.figure(figsize=(4.5 * max(1, len(targets)), 4.2))
+    viz = ScenePointsVisualizer()
+    fig = plt.figure(figsize=(4.8 * max(1, len(targets)), 4.4))
     for i, obj in enumerate(targets, start=1):
         ax = fig.add_subplot(1, len(targets), i, projection="3d")
+        ax.set_gid("no-colorbar")               # врезка мелкая — colorbar не влезает
         local = [pt for pt in points
                  if abs(pt.kx - obj.kx) <= 6 and abs(pt.ky - obj.ky) <= 6
                  and abs(pt.pos - obj.t0) <= 3 * p.coarse_step]
-        if local:
-            xs = [pt.kx for pt in local]
-            ys = [pt.ky for pt in local]
-            zs = [pt.pos for pt in local]
-            cs = [pt.db for pt in local]
-            ax.scatter(xs, ys, zs, c=cs, cmap="turbo", vmin=-25, vmax=0, s=30, edgecolors="none")
-        ax.scatter([obj.kx], [obj.ky], [obj.t0], marker="^", color="k", s=60)
-        ax.set_title(f"{obj.name} ({obj.kind}, 8 пер.)", fontsize=9)
-        ax.set_xlabel("kx", fontsize=7)
-        ax.set_ylabel("ky", fontsize=7)
-        ax.set_zlabel("поз.окна", fontsize=7)
+        viz.render(_scene_points(local),
+                   _scene_markers((obj,)), f"{obj.name} ({obj.kind}, 8 пер.)", ax=ax)
     fig.suptitle(f"С шумом — {_snr_label(snr_db)}")
     fig.tight_layout()
     return fig
@@ -387,11 +387,18 @@ def fig_heatmaps(volume: np.ndarray, cfg: ProjectConfig, p: Ex2Params, snr_db: f
     windows = scanner.scan(volume, cfg)
     cubes_by_pos = dict(windows)
 
+    # ВСЕ 6 объектных окон обязательны (баг ревью: срез [:12] по соседям резал C и F);
+    # добираем соседей/пустые только в остаток лимита панелей.
     obj_positions = sorted({_aligned_pos(obj.t0, p.coarse_step) for obj in p.scene})
-    chosen = [pos for pos in cubes_by_pos
-              if any(abs(pos - op) <= p.coarse_step for op in obj_positions)]
-    empties = [pos for pos in cubes_by_pos if pos not in chosen][:2]
-    show_positions = sorted(set(chosen + empties))[:12]
+    max_panels = 12
+    neighbours = [pos for pos in cubes_by_pos
+                  if pos not in obj_positions
+                  and any(abs(pos - op) <= p.coarse_step for op in obj_positions)]
+    empties = [pos for pos in cubes_by_pos
+               if pos not in obj_positions and pos not in neighbours][:2]
+    extra = (empties + neighbours)[:max(0, max_panels - len(obj_positions))]
+    chosen = neighbours
+    show_positions = sorted(set(obj_positions) | set(extra))
 
     n = max(1, len(show_positions))
     cols = min(4, n)

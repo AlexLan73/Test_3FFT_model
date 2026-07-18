@@ -100,6 +100,74 @@ def build_lfm_target_volume(sample: KinematicsSample, cfg: ProjectConfig, n_samp
     return signal_field.data
 
 
+def build_pulse_echo_volume(
+    modulation: Modulation,
+    *,
+    fs: float,
+    carrier_hz: float,
+    n_samples: int,
+    dur_samples: int,
+    t0_samples: int,
+    kx: float,
+    ky: float,
+    nx: int,
+    ny: int,
+    rng: np.random.Generator,
+    amplitude: float = 1.0,
+    extra_meta: dict[str, float] | None = None,
+) -> np.ndarray:
+    """Правильное ЭХО импульсного зонда: задержанная копия `s(t − t0)` (спека ex3 §2, S1).
+
+    Тот же принцип, что `build_lfm_target_volume` выше (A9-gap1): «окно поверх
+    глобальной волны режет ЧУЖУЮ фазовую траекторию». Для АМ это огибающая:
+    `AmWaveform` считает `1 + m·cos(2π·f_m·t)` от абсолютного t ⇒ окно в позиции t0
+    стартует с ПРОИЗВОЛЬНОЙ фазы огибающей. Настоящее эхо — копия импульса,
+    сдвинутая по времени: огибающая начинается С ФРОНТА (cos=+1 ⇒ |эхо|=A·(1+m)
+    на первом отсчёте). Для CW разница — лишь постоянный фазовый сдвиг несущей.
+
+    Реализация (формулы НЕ дублируем):
+      1) импульс рендерится НА НУЛЕ (`TimeWindow(short, t0=0, dur)`) через
+         `WaveformFactory` на решётке 1×1 → 1D зонд;
+      2) сдвиг на `t0_samples` БЕЗ заворота (хвост за N обрезается нулями);
+      3) steering-раскладка nx×ny — реюз `render_pipeline` (шаги 2-5 §4.0) с уже
+         сдвинутым 1D сигналом, `window=full`, `add_noise=False` (мульти-цель:
+         шум добавляется ОДИН раз поверх суммы, снаружи).
+    """
+    if not (0 <= t0_samples < n_samples):
+        raise ValueError(f"t0_samples={t0_samples} должен быть в [0, {n_samples})")
+    dur = max(1, min(int(dur_samples), n_samples))
+    meta_zero: dict[str, float] = {"nx": 1.0, "ny": 1.0, "kx": 0.0, "ky": 0.0}
+    if extra_meta:
+        meta_zero.update(extra_meta)
+    spec_zero = WaveformSpec(
+        fs=fs, carrier_hz=carrier_hz, n_samples=n_samples, amplitude=amplitude,
+        window=TimeWindow(kind="short", t0=0.0, dur=dur / fs),
+        meta=meta_zero, add_noise=False,
+    )
+    from .factory import WaveformFactory  # локальный импорт: разрыв цикла factory↔waveform_to_cube
+
+    pulse_1d = WaveformFactory().create(modulation).render(
+        NumpyBackend(), spec_zero, rng,
+    ).data[0, 0, :]
+
+    echo_1d = np.roll(pulse_1d, t0_samples)
+    if t0_samples > 0:                       # np.roll заворачивает хвост в начало — эхо так не умеет
+        echo_1d[:t0_samples] = 0.0
+    end = t0_samples + dur
+    if end < n_samples:                      # страховка: за концом импульса — нули
+        echo_1d[end:] = 0.0
+
+    meta_full: dict[str, float] = {"nx": float(nx), "ny": float(ny),
+                                   "kx": float(kx), "ky": float(ky)}
+    if extra_meta:
+        meta_full.update(extra_meta)
+    spec_full = WaveformSpec(
+        fs=fs, carrier_hz=carrier_hz, n_samples=n_samples, amplitude=amplitude,
+        window=TimeWindow(kind="full"), meta=meta_full, add_noise=False,
+    )
+    return render_pipeline(NumpyBackend(), spec_full, rng, echo_1d, modulation).data
+
+
 @dataclass(frozen=True)
 class LfmToCube:
     """ЛЧМ-фронтенд (точный, гл.3 §3.2): 2 раздельных FFT, БЕЗ скользящего окна.
