@@ -20,7 +20,9 @@ from tests.test_body_motion import (
 )
 from tests.test_body_motion_jammers import JammerSceneTests
 from tests.test_body_motion_multi import MultiTargetTests
+from tests.test_anti_barrage_pipeline import AntiBarragePipelineTests, DiagonalLoadingTests
 from tests.test_body_motion_volume import VolumeBuilderTests
+from tests.test_calibration import CalibrationTests
 from tests.test_cfar import CfarTests
 from tests.test_generators import GeneratorsTests
 from tests.test_graphics import GraphicsTests
@@ -51,9 +53,11 @@ SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests, Generator
           JammerSceneTests, MultiTargetTests,
           TransportTests, CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests,
           FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests, OsCfarPfaTests,
+          CalibrationTests,
           EdgeArbiterTests, CodeArbiterTests, CombinedArbiterTests,
           NearestNeighborTrackerTests,
-          BeamTargetingTests, CognitiveCycleTests]
+          BeamTargetingTests, CognitiveCycleTests,
+          DiagonalLoadingTests, AntiBarragePipelineTests]
 
 
 def main() -> int:

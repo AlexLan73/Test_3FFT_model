@@ -57,6 +57,26 @@ class SubspaceNuller:
     target_steering : np.ndarray | None
         Вектор наведения на цель формы (M,), M = nx*ny.
         Используется только при oblique=True.
+    loading : float
+        Коэффициент **diagonal loading** (§phase2), >= 0. Дефолт 0.0 —
+        поведение идентично phase1 (обратная совместимость).
+        Стандартный приём robust adaptive beamforming: при малом числе
+        снапшотов K (K < M, M = nx*ny) выборочная ковариация R становится
+        плохо обусловленной/вырожденной (ранг ≤ K), EVD шумит. Diagonal
+        loading подмешивает к R масштабированную единичную матрицу:
+            R' = R + loading · (tr(R)/M) · I
+        Масштаб tr(R)/M — средняя мощность на канал, чтобы loading был
+        безразмерным и не зависел от абсолютного уровня сигнала.
+
+        ⚠️ ВАЖНО (математика, проверено тестом `test_loading_affects_report_not_apply`):
+        `R + λI` сдвигает собственные ЗНАЧЕНИЯ, но НЕ меняет собственные ВЕКТОРЫ.
+        Поскольку и ортогональная (`apply`, §4.1), и косая (§4.2) проекции строятся
+        по собственным ВЕКТОРАМ подпространства помехи (`e_jam`), **`apply` инвариантен
+        к loading** — подавление им НЕ усиливается. Loading влияет ТОЛЬКО на оценку
+        собственных ЗНАЧЕНИЙ → `report.lambda_ratio` и детектор `is_barrage` (стабилизация
+        оценки числа источников/порога при малой выборке K). Для *робастного подавления*
+        при малой K нужен MVDR-подход с обращением `R⁻¹` (там loading критичен) — это
+        отдельная задача, а не subspace-проекция настоящего класса.
     """
 
     # Пороги критерия «это barrage»
@@ -68,12 +88,16 @@ class SubspaceNuller:
         n_jammers: int = 1,
         oblique: bool = False,
         target_steering: np.ndarray | None = None,
+        loading: float = 0.0,
     ) -> None:
         if n_jammers < 1:
             raise ValueError("n_jammers должно быть >= 1")
+        if loading < 0.0:
+            raise ValueError("loading должно быть >= 0")
         self._n_jammers = n_jammers
         self._oblique = oblique
         self._target_steering = target_steering
+        self._loading = loading
 
     # ── внутренние вспомогательные ──────────────────────────────────────────
 
@@ -83,14 +107,22 @@ class SubspaceNuller:
         return datacube.reshape(nx * ny, k_snap).astype(np.complex128, copy=False)
 
     def _eigh(self, datacube: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Ковариация (R = X@X.H/K) + EVD.
+        """Ковариация (R = X@X.H/K) [+ diagonal loading] + EVD.
 
         Возвращает (x_mat[M,K], lambdas[M] по возрастанию, e_jam[M,n_jammers]).
         e_jam — топ-n_jammers собств. векторов (подпространство помехи).
+
+        Diagonal loading (§phase2, loading > 0): R' = R + loading·(tr(R)/M)·I —
+        робастность EVD к малой выборке (K < M). loading=0 → без изменений (phase1).
         """
         x_mat = self._reshape(datacube)                     # X (M, K)
         k_snap = x_mat.shape[1]
         r_cov = (x_mat @ x_mat.conj().T) / k_snap          # R (M, M), эрмитова
+        if self._loading > 0.0:
+            m_elem = r_cov.shape[0]
+            r_cov = r_cov + self._loading * (np.trace(r_cov).real / m_elem) * np.eye(
+                m_elem, dtype=r_cov.dtype
+            )
         lambdas, e_vecs = np.linalg.eigh(r_cov)            # ascending: λ₀ ≤ … ≤ λ_{M-1}
         e_jam = e_vecs[:, -self._n_jammers:]                # доминантные (помеха)
         return x_mat, lambdas, e_jam

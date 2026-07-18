@@ -8,6 +8,27 @@
 
 ## Сейчас в работе
 
+- ✅ **anti-barrage phase2 (pipeline + diagonal loading)** (2026-07-18) — `AntiBarragePipeline`
+  (Facade: nuller→Fft3DModel→cfar единым `process`) + diagonal loading в `SubspaceNuller`.
+  **⚠️ Находка Кодо (математика):** diagonal loading НЕ влияет на подавление (`apply` инвариантен —
+  проекция на собственные ВЕКТОРЫ, `R+λI` их не меняет), влияет ТОЛЬКО на `report.lambda_ratio`/
+  детектор `is_barrage`. Робастное подавление при малой K = MVDR (обращение R⁻¹) — отдельная задача.
+  Тест документирует находку. **Весь бэкенд 35 наборов, 215 ok, 0 fail.**
+  → [`specs/anti_barrage_phase2_2026-07-18.md`](../specs/anti_barrage_phase2_2026-07-18.md).
+  - 🎉 **ВСЯ БАЗА (core) ПО ЛОГИКЕ ЗАКРЫТА:** нормировка признаков · арбитр гл.5 (геом.+код) ·
+    трекинг · OS-CFAR точная Pfa · целеуказание гл.8 · калибровка §4.12 · anti-barrage phase2.
+    Осталось: активный FM-m опрос (с приёмника, вне прототипа), L3/CNN (torch — не дома).
+
+
+- ✅ **Калибровка/валидация триажа на датасете (§4.12)** (2026-07-18) — `core/models/tokenizer/
+  calibration.py`: `TriageCalibrator` (build_dataset классов source/noise/smeared через angular_fft
+  + steering, разные апертуры/SNR/углы) + `validate` (confusion/accuracy/pfa_noise). Проверено Кодо
+  независимо (seed 42): **source/noise accuracy 1.0, pfa_noise 0.0** на 16×16/64×64/128×64; smeared
+  0.87→1.0. Якоря §4.11 НЕ тронуты — валидны на датасете. **Инвариантность к M доказана ⇒ якорь
+  SOURCE для больших M НЕ нужен** (метка не деградирует, нюанс был только в score). CalibrationTests
+  6 ok, бэкенд 0 fail. НЕ закоммичено.
+
+
 - 🎯 **Целеуказание пучка FM-m (гл.8) — замыкает когнитивную петлю** (2026-07-18) — новый пакет
   `core/models/targeting/`: `BeamCommand` (VO: target_r/center/beam_angles), `Targeting(ABC)`,
   `BeamTargeting` (пучок лучей в конус неопределённости вокруг цели, `cone_half`/`max_beams`, только
