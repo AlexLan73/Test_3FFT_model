@@ -8,6 +8,13 @@
 
 ## Сейчас в работе
 
+- ✅ **Robust MVDR-nuller** (2026-07-18) — `core/models/anti_barrage/mvdr.py`: `RobustMvdrNuller`
+  (Capon `w=R⁻¹a/(aᴴR⁻¹a)` через `np.linalg.solve`, diagonal loading в R). Замыкает находку phase2:
+  здесь loading **реально критичен** (обращение R⁻¹), в отличие от subspace-проекции (no-op).
+  Проверено Кодо: distortionless `|wᴴa|=1.0`, loading стабилизирует `‖w‖` (1.68→0.18, ~9×) на
+  вырожденной R (K<M), заград подавлен. test_mvdr 4 ok, весь бэкенд 36 наборов 0 fail.
+
+
 - ✅ **anti-barrage phase2 (pipeline + diagonal loading)** (2026-07-18) — `AntiBarragePipeline`
   (Facade: nuller→Fft3DModel→cfar единым `process`) + diagonal loading в `SubspaceNuller`.
   **⚠️ Находка Кодо (математика):** diagonal loading НЕ влияет на подавление (`apply` инвариантен —

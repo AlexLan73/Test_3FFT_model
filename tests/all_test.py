@@ -26,6 +26,7 @@ from tests.test_calibration import CalibrationTests
 from tests.test_cfar import CfarTests
 from tests.test_generators import GeneratorsTests
 from tests.test_graphics import GraphicsTests
+from tests.test_mvdr import MvdrNullerTests
 from tests.test_nuller import NullerTests
 from tests.test_runtime import (
     CommandTests,
@@ -57,7 +58,7 @@ SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests, Generator
           EdgeArbiterTests, CodeArbiterTests, CombinedArbiterTests,
           NearestNeighborTrackerTests,
           BeamTargetingTests, CognitiveCycleTests,
-          DiagonalLoadingTests, AntiBarragePipelineTests]
+          DiagonalLoadingTests, AntiBarragePipelineTests, MvdrNullerTests]
 
 
 def main() -> int:
