@@ -85,6 +85,7 @@ class Ex3Params:
     snr_db: float = 10.0                 # шумовой прогон (clean — отдельно, отладка §0.3 ex2)
     jammers: tuple[tuple[str, Modulation, int, int], ...] = field(default_factory=lambda: _JAMMERS)
     band_gate_frac: float = 1.0 / 3.0    # R1: всплесков больше трети окон = «полоса»
+    drfm_lead0: int | None = None        # ex4: позиция 1-й копии гребёнки (None = 0.15·N)
 
 
 # ── генерация (S1: правильные эхо; помехи из реестра) ────────────────────────
@@ -116,8 +117,10 @@ def build_drfm_comb_volume(p: Ex3Params, kx: int, ky: int,
     """
     b = p.base
     amp0 = 10.0 ** (p.jnr_other_db / 20.0)
-    # доли оси — масштабируются на лёгкие тестовые размеры (512) и полный 4096
-    lead, spacing = round(0.15 * b.n_axis), round(0.10 * b.n_axis)
+    # доли оси — масштабируются на лёгкие тестовые размеры (512) и полный 4096;
+    # lead0 (ex4) — позиция первой копии от НОСИТЕЛЯ гребёнки (движется по тактам)
+    lead = p.drfm_lead0 if p.drfm_lead0 is not None else round(0.15 * b.n_axis)
+    spacing = round(0.10 * b.n_axis)
     count, decay = 5, 0.85
     n_units = 8                               # ретранслируется 8-периодный зонд (как B/E)
     volume = np.zeros((b.nx, b.ny, b.n_axis), dtype=np.complex64)
@@ -205,10 +208,11 @@ class Ex3AmBarrage(DemoRunner):
         return Ex2AmSquare(params=self._p.base)._cfg()
 
     def _run_pipeline(self, volume: np.ndarray, cfg) -> tuple[dict[str, Any], list[CoarsePoint],
-                                                              list[CoarsePoint] | None, bool]:
+                                                              list[CoarsePoint] | None, bool, list]:
         """Конвейер R1: скан → полоса? → null → повторный скан → тонкий тракт ex2.
 
-        Возвращает (метрики, точки ДО, точки ПОСЛЕ null|None, полоса_была).
+        Возвращает (метрики, точки ДО, точки ПОСЛЕ null|None, полоса_была, детекции) —
+        детекции 5-м элементом нужны ex4 (трекинг по тактам).
         """
         p = self._p
         b = p.base
@@ -224,7 +228,7 @@ class Ex3AmBarrage(DemoRunner):
         metrics = match_metrics(dets, b)
         metrics["band_detected"] = angle is not None
         metrics["band_angle"] = angle
-        return metrics, pts_before, pts_after, angle is not None
+        return metrics, pts_before, pts_after, angle is not None, dets
 
     def visualize(self, ctx: DemoContext) -> dict[str, Figure]:
         p = self._p
@@ -238,7 +242,7 @@ class Ex3AmBarrage(DemoRunner):
         # базовые прогоны: clean (отладка) и snr+10 — без помех
         for tag, snr in (("clean", float("inf")), ("snr10", p.snr_db)):
             vol = add_noise_volume(echo_clean, snr, ctx.rng)
-            metrics, pts, _, _ = self._run_pipeline(vol, cfg)
+            metrics, pts, _, _, _ = self._run_pipeline(vol, cfg)
             stats[f"base_{tag}"] = metrics
             if tag == "clean":
                 figures["scene3d_signals"] = fig_scene3d(pts, b, "Правильные эхо (S1), без помех")
@@ -247,7 +251,7 @@ class Ex3AmBarrage(DemoRunner):
         for name, modulation, jkx, jky in p.jammers:
             jam = build_jammer_volume(p, name, modulation, jkx, jky, ctx.rng)
             vol = add_noise_volume(echo_clean + jam, p.snr_db, ctx.rng)
-            metrics, pts_before, pts_after, banded = self._run_pipeline(vol, cfg)
+            metrics, pts_before, pts_after, banded, _ = self._run_pipeline(vol, cfg)
             stats[name] = metrics
             figures[f"{name}_before"] = fig_scene3d(
                 pts_before, b, f"{name}: грубый скан ДО подавления (JNR "

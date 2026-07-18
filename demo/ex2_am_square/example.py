@@ -180,7 +180,8 @@ class CoarsePoint:
     db: float
 
 
-def coarse_burst_points(volume: np.ndarray, cfg: ProjectConfig, p: Ex2Params) -> list[CoarsePoint]:
+def coarse_burst_points(volume: np.ndarray, cfg: ProjectConfig, p: Ex2Params,
+                        max_points: int = 1) -> list[CoarsePoint]:
     """Грубый скан: дешёвый векторизованный порог по ПЕРВОМУ кубу (R1), без токенизатора.
 
     Пол шума N̂ = `estimate_noise_floor(|куб0|²)` (реюз `demo/ex1_am_line/denoise.py`).
@@ -201,14 +202,21 @@ def coarse_burst_points(volume: np.ndarray, cfg: ProjectConfig, p: Ex2Params) ->
     points: list[CoarsePoint] = []
     for pos, cube in windows:
         power = cube.magnitude.astype(np.float64) ** 2
-        peak_power = float(power.max())
-        if peak_power <= threshold:
-            continue
-        idx = np.unravel_index(int(np.argmax(power)), power.shape)
-        points.append(CoarsePoint(
-            kx=float(cube.kx.values[idx[0]]), ky=float(cube.ky.values[idx[1]]),
-            pos=pos, db=float(cube.magnitude_db[idx]),
-        ))
+        mag_db = cube.magnitude_db
+        # до max_points пиков на окно (NMS ±2 бина по углу): один argmax терял слабую
+        # цель, когда в том же окне сидит сильная помеха/гребёнка (диагностика ex4)
+        work = power.copy()
+        for _ in range(max_points):
+            peak_power = float(work.max())
+            if peak_power <= threshold:
+                break
+            idx = np.unravel_index(int(np.argmax(work)), work.shape)
+            points.append(CoarsePoint(
+                kx=float(cube.kx.values[idx[0]]), ky=float(cube.ky.values[idx[1]]),
+                pos=pos, db=float(mag_db[idx]),
+            ))
+            x0, y0 = idx[0], idx[1]
+            work[max(0, x0 - 2):x0 + 3, max(0, y0 - 2):y0 + 3, :] = 0.0
     return points
 
 

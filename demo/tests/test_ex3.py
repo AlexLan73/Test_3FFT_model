@@ -73,7 +73,7 @@ class Ex3EchoJammersTests(TestRunner):
         echo = build_echo_volume(self.p, self.rng)
         jam = build_jammer_volume(self.p, "barrage", Modulation.BARRAGE, 6, 7, self.rng)
         vol = add_noise_volume(echo + jam, 10.0, self.rng)
-        m, _, pts_after, banded = self.ex._run_pipeline(vol, self.cfg)
+        m, _, pts_after, banded, _ = self.ex._run_pipeline(vol, self.cfg)
         g.add(banded, "полоса заграда детектирована (гейт R1)")
         g.add(m["band_angle"] == (6.0, 7.0), f"угол полосы точен, получено {m['band_angle']}")
         g.add(pts_after is not None, "после null сделан повторный скан")
@@ -101,7 +101,7 @@ class Ex3EchoJammersTests(TestRunner):
         echo = build_echo_volume(self.p, self.rng)
         jam = build_jammer_volume(self.p, "drfm", Modulation.DRFM_REPEATER, -6, -7, self.rng)
         vol = add_noise_volume(echo + jam, 10.0, self.rng)
-        m, pts_before, _, banded = self.ex._run_pipeline(vol, self.cfg)
+        m, pts_before, _, banded, _ = self.ex._run_pipeline(vol, self.cfg)
         g.add(m["found"] == 2, f"объекты при DRFM найдены, получено {m['found']}")
         # ГРЕБЁНКА: копии зонда видны как всплески на угле DRFM в НЕСКОЛЬКИХ окнах.
         # «полоса/не полоса» НЕ ассертим: на лёгкой оси 512 копии (шаг 0.1·N) покрывают
