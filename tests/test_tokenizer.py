@@ -43,16 +43,16 @@ _NX = _NY = 16
 
 # ── Синтетические угловые карты (Хэмминг-апертура + компл. гаусс. шум) ────────
 
-def _plane_wave(kx0: float, ky0: float) -> np.ndarray:
-    x = np.arange(_NX)[:, None]
-    y = np.arange(_NY)[None, :]
-    return np.exp(2j * np.pi * (kx0 * x / _NX + ky0 * y / _NY))
+def _plane_wave(kx0: float, ky0: float, nx: int = _NX, ny: int = _NY) -> np.ndarray:
+    x = np.arange(nx)[:, None]
+    y = np.arange(ny)[None, :]
+    return np.exp(2j * np.pi * (kx0 * x / nx + ky0 * y / ny))
 
 
-def _noise_field(sigma: float, seed: int) -> np.ndarray:
+def _noise_field(sigma: float, seed: int, nx: int = _NX, ny: int = _NY) -> np.ndarray:
     rng = np.random.default_rng(seed)
-    return (rng.standard_normal((_NX, _NY)) +
-            1j * rng.standard_normal((_NX, _NY))) * sigma / np.sqrt(2.0)
+    return (rng.standard_normal((nx, ny)) +
+            1j * rng.standard_normal((nx, ny))) * sigma / np.sqrt(2.0)
 
 
 def _angular_power(aperture: np.ndarray) -> np.ndarray:
@@ -63,13 +63,13 @@ def _angular_power(aperture: np.ndarray) -> np.ndarray:
     return a.real ** 2 + a.imag ** 2
 
 
-def _noise_scene(seed: int = 0) -> np.ndarray:
-    return _angular_power(_noise_field(1.0, seed))
+def _noise_scene(seed: int = 0, nx: int = _NX, ny: int = _NY) -> np.ndarray:
+    return _angular_power(_noise_field(1.0, seed, nx, ny))
 
 
 def _target_scene(kx0: float = 2.0, ky0: float = -3.0, amp: float = 6.0,
-                   seed: int = 10) -> np.ndarray:
-    s = amp * _plane_wave(kx0, ky0) + _noise_field(1.0, seed)
+                   seed: int = 10, nx: int = _NX, ny: int = _NY) -> np.ndarray:
+    s = amp * _plane_wave(kx0, ky0, nx, ny) + _noise_field(1.0, seed, nx, ny)
     return _angular_power(s)
 
 
@@ -96,31 +96,41 @@ class FeatureSeparationTests(TestRunner):
         self.triage = RuleBasedTriage()
 
     def test_three_classes_in_corridor(self) -> AssertionGroup:
-        """PR/Hoyer/MainFrac/LobeRatio/MaxMean должны попасть в коридоры §4.11."""
+        """PR/Hoyer/MainFrac/LobeRatio/MaxMean должны попасть в коридоры §4.11.
+
+        PR/MaxMean здесь -- НОРМИРОВАННЫЕ (делены на M=256=16x16, F9, см.
+        `FeatureVector`): коридоры пересчитаны делением исходных (сырых,
+        калиброванных на M=256) границ §4.11 на 256.0. Hoyer/MainFrac/LobeRatio
+        инвариантны к M по построению -- коридоры не менялись.
+        """
         g = AssertionGroup("features.three_classes_in_corridor")
 
         f_noise = self.extractor.extract(_noise_scene(seed=1))
         f_target = self.extractor.extract(_target_scene(seed=11))
         f_barrage = self.extractor.extract(_barrage_scene(seed=21))
 
-        # шум -- около M/2=128, размазан, низкий контраст
-        g.add(f_noise.pr > 60.0, f"шум: PR={f_noise.pr:.1f} должен быть > 60 (табл. ~129)")
+        # шум -- около M/2=128 (fraction ~0.5), размазан, низкий контраст
+        g.add(f_noise.pr > 60.0 / 256.0, f"шум: PR={f_noise.pr:.4f} должен быть > {60/256:.4f} (табл. ~129/256)")
         g.add(f_noise.hoyer < 0.55, f"шум: Hoyer={f_noise.hoyer:.2f} должен быть < 0.55 (табл. ~0.31)")
         g.add(f_noise.main_frac < 0.25, f"шум: MainFrac={f_noise.main_frac:.2f} должен быть < 0.25 (табл. ~0.07)")
-        g.add(f_noise.max_mean < 15.0, f"шум: MaxMean={f_noise.max_mean:.1f} должен быть < 15 (табл. ~5.4)")
+        g.add(f_noise.max_mean < 15.0 / 256.0,
+              f"шум: MaxMean={f_noise.max_mean:.4f} должен быть < {15/256:.4f} (табл. ~5.4/256)")
 
         # цель -- компактный лепесток, высокая собранность
-        g.add(f_target.pr < 8.0, f"цель: PR={f_target.pr:.2f} должен быть < 8 (табл. ~3.6)")
+        g.add(f_target.pr < 8.0 / 256.0, f"цель: PR={f_target.pr:.4f} должен быть < {8/256:.4f} (табл. ~3.6/256)")
         g.add(f_target.hoyer > 0.85, f"цель: Hoyer={f_target.hoyer:.2f} должен быть > 0.85 (табл. ~0.94)")
         g.add(f_target.main_frac > 0.85, f"цель: MainFrac={f_target.main_frac:.2f} должен быть > 0.85 (табл. ~0.98)")
         g.add(f_target.lobe_ratio < 0.05, f"цель: LobeRatio={f_target.lobe_ratio:.4f} должен быть < 0.05 (табл. ~0.002)")
-        g.add(f_target.max_mean > 60.0, f"цель: MaxMean={f_target.max_mean:.1f} должен быть > 60 (табл. ~123)")
+        g.add(f_target.max_mean > 60.0 / 256.0,
+              f"цель: MaxMean={f_target.max_mean:.4f} должен быть > {60/256:.4f} (табл. ~123/256)")
 
         # заградка -- промежуточная между целью и шумом
-        g.add(8.0 < f_barrage.pr < 40.0, f"заградка: PR={f_barrage.pr:.2f} должен быть в (8,40) (табл. 15-23)")
+        g.add(8.0 / 256.0 < f_barrage.pr < 40.0 / 256.0,
+              f"заградка: PR={f_barrage.pr:.4f} должен быть в ({8/256:.4f},{40/256:.4f}) (табл. 15-23/256)")
         g.add(0.6 < f_barrage.hoyer < 0.9, f"заградка: Hoyer={f_barrage.hoyer:.2f} должен быть в (0.6,0.9) (табл. ~0.81)")
         g.add(0.2 < f_barrage.main_frac < 0.65, f"заградка: MainFrac={f_barrage.main_frac:.2f} должен быть в (0.2,0.65) (табл. ~0.40)")
-        g.add(15.0 < f_barrage.max_mean < 55.0, f"заградка: MaxMean={f_barrage.max_mean:.1f} должен быть в (15,55) (табл. 22-42)")
+        g.add(15.0 / 256.0 < f_barrage.max_mean < 55.0 / 256.0,
+              f"заградка: MaxMean={f_barrage.max_mean:.4f} должен быть в ({15/256:.4f},{55/256:.4f}) (табл. 22-42/256)")
 
         # структурный порядок (важнее абсолютных значений -- патент §4.11: "иллюстративны")
         g.add(f_target.pr < f_barrage.pr < f_noise.pr,
@@ -171,6 +181,55 @@ class FeatureSeparationTests(TestRunner):
         g.add(abs(raw_grid - raw_straddle) > 0.3,
               f"сырой 2й/1й пик ДОЛЖЕН плыть (демонстрация, почему не используется): "
               f"сетка={raw_grid:.3f} полбина={raw_straddle:.3f}")
+        return g
+
+
+    def test_pr_invariant_to_aperture_size(self) -> AssertionGroup:
+        """Нормировка PR/M (F9) должна держать триаж рабочим при разной апертуре i×j.
+
+        Сравниваем апертуры 16x16 (M=256, эталон §4.11) и 8x8 (M=64).
+
+        Честно (см. отчёт Кодо): для ШУМА нормировка даёт именно заявленный эффект
+        -- сырой PR растёт с M (~M/2, табл. §4.11), нормированный PR/M остаётся
+        почти константой (~0.5) при обоих M. Для ТОЧЕЧНОЙ ЦЕЛИ эмпирически сырой
+        PR (число ячеек главного лепестка) уже почти не зависит от M (лепесток
+        занимает фиксированное малое число бинов независимо от размера апертуры,
+        если нет дополнительного паддинга сверх собственного размера решётки) --
+        поэтому нормированный PR цели у разных M расходится сильнее, чем сырой.
+        Несмотря на это, итоговая МЕТКА триажа (source/noise) остаётся верной при
+        обоих M, т.к. дистанция до якоря использует ещё Hoyer/MainFrac/LobeRatio,
+        которые компенсируют смещение log_pr."""
+        g = AssertionGroup("features.pr_invariant_to_aperture_size")
+
+        f_t256 = self.extractor.extract(_target_scene(seed=31, nx=16, ny=16))
+        f_t64 = self.extractor.extract(_target_scene(seed=31, nx=8, ny=8))
+        f_n256 = self.extractor.extract(_noise_scene(seed=32, nx=16, ny=16))
+        f_n64 = self.extractor.extract(_noise_scene(seed=33, nx=8, ny=8))
+
+        def rel(a: float, b: float) -> float:
+            return abs(a - b) / max(abs(a), abs(b), 1e-9)
+
+        # -- шум: главный демонстрационный случай задачи (сырой PR растёт с M) --
+        raw_pr_n256 = f_n256.pr * 256.0
+        raw_pr_n64 = f_n64.pr * 64.0
+        g.add(rel(raw_pr_n256, raw_pr_n64) > 0.5,
+              f"сырой PR шума ДОЛЖЕН заметно отличаться при M=256/64 (демонстрация проблемы): "
+              f"raw256={raw_pr_n256:.1f} (~M/2={128}) raw64={raw_pr_n64:.1f} (~M/2={32})")
+        g.add(rel(f_n256.pr, f_n64.pr) < 0.1,
+              f"нормированный PR шума близок при M=256 и M=64 (инвариант ~0.5): "
+              f"{f_n256.pr:.4f} vs {f_n64.pr:.4f}")
+
+        # -- триаж-метка (главный практический критерий) должна держаться при обоих M --
+        label_t256, score_t256 = self.triage.classify(f_t256)
+        label_t64, score_t64 = self.triage.classify(f_t64)
+        label_n256, _ = self.triage.classify(f_n256)
+        label_n64, _ = self.triage.classify(f_n64)
+        g.add(label_t256 == SOURCE, f"target@M=256: label={label_t256} должен быть {SOURCE}")
+        g.add(label_t64 == SOURCE,
+              f"target@M=64: label={label_t64} должен быть {SOURCE} (score={score_t64:.2f}, "
+              f"обычно ниже, чем при M=256 score={score_t256:.2f} -- честная девиация, см. отчёт)")
+        g.add(label_n256 == NOISE, f"noise@M=256: label={label_n256} должен быть {NOISE}")
+        g.add(label_n64 == NOISE, f"noise@M=64: label={label_n64} должен быть {NOISE}")
         return g
 
 

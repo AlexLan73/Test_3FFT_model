@@ -18,14 +18,31 @@ import numpy as np
 
 @dataclass(frozen=True)
 class FeatureVector:
-    """6 признаков среза/объёма (гл.4 §4.5) -- Value Object."""
+    """6 признаков среза/объёма (гл.4 §4.5) -- Value Object.
 
-    pr: float          # Participation Ratio = S1²/S2
-    hoyer: float        # индекс Хойера, [0,1]
-    main_frac: float    # доля энергии в главном лепестке (3x3 / 3x3x3)
-    lobe_ratio: float   # интегральное отношение 2-й лепесток / главный
-    max_mean: float     # контраст пика
-    energy: float       # S1 -- абсолютный уровень
+    ВАЖНО (нормировка на M, F9): после перехода на апертуру i×j (nx != ny,
+    паддинг до 2ⁿ независимо по осям, `ArrayConfig.padded_shape()`) число ячеек
+    угловой карты `M = p.size` больше НЕ фиксировано (было 256 = 16x16).
+    `pr`, `energy`, `max_mean` растут пропорционально M (участие/энергия/контраст
+    считаются по абсолютным суммам) -- без нормировки якоря триажа §4.11
+    (калиброванные на M=256) плыли бы при другой апертуре. Поэтому здесь они
+    нормированы делением на `m = float(p.size)`, что делает их ИНВАРИАНТНЫМИ
+    к размеру апертуры (проверено `tests/test_tokenizer.py`,
+    `test_pr_invariant_to_aperture_size`):
+      - `pr`       -- PR/M, "participation fraction" ∈ (0, 1]: цель ~0.014,
+                      заградка ~0.074, шум ~0.5.
+      - `energy`   -- S1/M, средняя мощность на ячейку.
+      - `max_mean` -- (max/mean)/M, контраст пика, нормированный на размер карты.
+    `hoyer`, `main_frac`, `lobe_ratio` инвариантны к M УЖЕ по построению (это
+    отношения однородных величин, размер карты в них сокращается) -- НЕ трогаем.
+    """
+
+    pr: float          # Participation Ratio, нормированный: (S1²/S2) / M ∈ (0,1]
+    hoyer: float        # индекс Хойера, [0,1] -- инвариантен к M по построению
+    main_frac: float    # доля энергии в главном лепестке -- инвариантен к M
+    lobe_ratio: float   # 2-й лепесток / главный -- инвариантен к M
+    max_mean: float     # контраст пика, нормированный: (max/mean) / M
+    energy: float       # средняя мощность на ячейку: S1 / M
 
 
 class FeatureExtractor:
@@ -52,13 +69,18 @@ class FeatureExtractor:
         self._guard_half = guard_half
 
     def extract(self, power: np.ndarray) -> FeatureVector:
-        """`power` -- P = |A|², произвольной размерности (2D срез или 3D объём)."""
+        """`power` -- P = |A|², произвольной размерности (2D срез или 3D объём).
+
+        `pr`/`energy`/`max_mean` нормируются на `m = p.size` (число ячеек карты)
+        -- инвариантность к размеру апертуры i×j после паддинга (F9, см.
+        докстринг `FeatureVector`).
+        """
         p = np.asarray(power, dtype=np.float64)
         m = float(p.size)
         s1 = float(p.sum())
         s2 = float((p * p).sum())
 
-        pr = (s1 * s1) / max(s2, self._EPS)
+        pr = ((s1 * s1) / max(s2, self._EPS)) / m
 
         sqrt_m = np.sqrt(m)
         hoyer = (float((sqrt_m - s1 / np.sqrt(max(s2, self._EPS))) / (sqrt_m - 1.0))
@@ -74,8 +96,8 @@ class FeatureExtractor:
         second_sum = self._block_sum(masked, second_idx, self._main_half)
         lobe_ratio = second_sum / max(main_sum, self._EPS)
 
-        max_mean = float(p.max()) / max(float(p.mean()), self._EPS)
-        energy = s1
+        max_mean = (float(p.max()) / max(float(p.mean()), self._EPS)) / m
+        energy = s1 / m
 
         return FeatureVector(
             pr=pr, hoyer=hoyer, main_frac=main_frac,

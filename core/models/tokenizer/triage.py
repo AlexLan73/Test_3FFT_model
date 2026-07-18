@@ -52,13 +52,20 @@ class RuleBasedTriage(SliceTriage):
     `MaxMean`/`Energy` -- вспомогательные, в дистанцию не входят (§4.5: "вспомогательные").
     """
 
-    # Якоря из таблицы §4.11 ("Три класса (источник на сетке)").
+    # Якоря из таблицы §4.11 ("Три класса (источник на сетке)"), калиброваны на
+    # эталонной апертуре 16x16 (M_REF=256 ячеек). После нормировки PR -> PR/M
+    # (F9, инвариантность к размеру апертуры i×j) якорь по PR переводится в
+    # логарифм ДОЛИ (fraction): log10(raw_pr / M_REF) -- сам якорь становится
+    # инвариантным к M, т.к. классифицируемый f.pr тоже уже поделён на m.
+    # Разности log10(raw/M_REF) между якорями совпадают с разностями log10(raw)
+    # (вычитается одна и та же константа log10(M_REF)) -> _SCALE_LOG_PR не меняем.
+    _M_REF = 256.0
     _ANCHORS: tuple[_Anchor, ...] = (
-        _Anchor(SOURCE,  log_pr=math.log10(3.6),  hoyer=0.94, main_frac=0.98,
+        _Anchor(SOURCE,  log_pr=math.log10(3.6 / _M_REF),  hoyer=0.94, main_frac=0.98,
                 log1p_lobe=math.log1p(0.002)),
-        _Anchor(SMEARED, log_pr=math.log10(19.0), hoyer=0.81, main_frac=0.40,
+        _Anchor(SMEARED, log_pr=math.log10(19.0 / _M_REF), hoyer=0.81, main_frac=0.40,
                 log1p_lobe=math.log1p(0.25)),
-        _Anchor(NOISE,   log_pr=math.log10(129.0), hoyer=0.31, main_frac=0.07,
+        _Anchor(NOISE,   log_pr=math.log10(129.0 / _M_REF), hoyer=0.31, main_frac=0.07,
                 log1p_lobe=math.log1p(1.03)),
     )
 
