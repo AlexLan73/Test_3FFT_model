@@ -8,6 +8,18 @@
 
 ## Сейчас в работе
 
+- ✅ **Угловая кластеризация детекций** (2026-07-18) — `core/models/anti_barrage/clustering.py`:
+  `DetectionCluster` (VO) + `DetectionClusterer` (single-linkage union-find по близости угол+дальность,
+  центроид = пик level_db). Один источник (лепесток/страддл занимает неск. ячеек) → 1 кластер, убирает
+  дубли для трекинга. Проверено Кодо: 3 соседние+2 отдельные→3 кластера. test_clustering 6 ok, бэкенд 0 fail.
+
+- 🔨 **demo-серия ex1 (стенд `demo/core/` + `Ex1AmLine`)** (2026-07-18) — demo теперь ведёт ЭТОТ
+  чат (Alex переназначил). Ревью Кодо спеки `specs/demo_ex1_signal_2026-07-18.md` → **§0 решения
+  Alex**: длительности 4/8/16 · ex1 переписать под `DemoRunner`(Template Method) · f_c=250 оставить
+  с честной пометкой алиасинга · фикс бага `fig_three_variants` (Вариант2=Вариант3). Делегировано
+  Sonnet (стенд `demo/core/`: DemoRunner/DemoContext/DemoWriter/DemoReport + `Ex1AmLine` + тесты +
+  `run_all.py`; SceneBank/placement НЕ трогаем — с ex2). ⏳ ждём Sonnet → глубокое ревью Кодо.
+
 - ✅ **ROI-гейт детекции** (2026-07-18) — `core/models/targeting/roi_gate.py`: `RoiGate` фильтрует
   `list[Detection]` по зоне интереса вокруг целеуказания (`BeamCommand.center` ± angle_half по углу,
   target_r ± range_half по дальности; union по beams) — убирает ложные детекции вне ROI (§8 гейтит

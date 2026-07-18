@@ -1,5 +1,6 @@
 """Пространственное подавление заградительной помехи + CA-CFAR (numpy-эталон)."""
 from .cfar import CaCfarDetector, Detection
+from .clustering import DetectionCluster, DetectionClusterer
 from .mvdr import RobustMvdrNuller
 from .nuller import NullerReport, SubspaceNuller
 from .pipeline import AntiBarragePipeline
@@ -10,5 +11,7 @@ __all__ = [
     "RobustMvdrNuller",
     "CaCfarDetector",
     "Detection",
+    "DetectionCluster",
+    "DetectionClusterer",
     "AntiBarragePipeline",
 ]

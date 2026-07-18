@@ -24,6 +24,7 @@ from tests.test_anti_barrage_pipeline import AntiBarragePipelineTests, DiagonalL
 from tests.test_body_motion_volume import VolumeBuilderTests
 from tests.test_calibration import CalibrationTests
 from tests.test_cfar import CfarTests
+from tests.test_clustering import ClusteringTests
 from tests.test_generators import GeneratorsTests
 from tests.test_graphics import GraphicsTests
 from tests.test_mvdr import MvdrNullerTests
@@ -48,7 +49,7 @@ from tests.test_targeting import BeamTargetingTests, CognitiveCycleTests
 from tests.test_tracking import NearestNeighborTrackerTests
 from tests.test_waveform_to_cube import AmToCubeTests, LfmToCubeTests, SquareViewTests
 
-SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests, GeneratorsTests,
+SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, ClusteringTests, SnrTests, GeneratorsTests,
           ProjectConfigTests, MessageBusTests, MotionModelTests, KinematicsTests,
           VolumeBuilderTests, LfmToCubeTests, AmToCubeTests, SquareViewTests,
           ApertureIxjTests,
