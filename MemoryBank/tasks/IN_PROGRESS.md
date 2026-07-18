@@ -44,9 +44,14 @@
     ≈ патент (не подгонка). LobeRatio (E4) и P=mag² (E7) реализованы верно. 2 прохода (target/comb/
     barrage + автокорр) ок. Девиации честно задокументированы (α по CA-приближению; триаж —
     параллельный ABC `SliceTriage`, не наследует `CubeClassifier`, чтобы не ломать LSP).
-  - **⚠️ Находка ревью:** триаж класса **smeared/заград слабый** — на игрушечном заграде скор 0.50
-    (честно «не уверен»), т.к. модель заграда ≠ патентной. Калибровать пороги на РЕАЛЬНЫХ
-    заград-кубах (`generators/jammers` BarrageRF) — совпадает с §4.12 (пороги калибруются на датасете).
+  - **✅ Заград-хвост ЗАКРЫТ (2026-07-17, диагностика Кодо → Sonnet-фикс → ревью Кодо):** прошлая
+    находка «smeared слабый» переопределена. Диагностика на РЕАЛЬНОМ `BarrageRfJammer`: проход 1
+    даёт `source` (заград собран по УГЛУ — верно, §4-бис.4), smeared-порог калибровать не нужно.
+    **Настоящий баг был в проходе 2:** `assemble_range` разваливал направленный заград на ложные
+    `target`/`comb` (угловой джиттер пика ломал строгое `span==n`). Фикс: barrage по `fill≥0.7`
+    (не строгая непрерывность). boresight → `barrage` (было `target`), RangeAssemblyTests 7 ok.
+    Осколки джиттера (~144 target) → арбитр гл.5 (FM-m код), вне прохода 2 (§4.9/§4.12).
+    → [`specs/tokenizer_barrage_pass2_2026-07-17.md`](../specs/tokenizer_barrage_pass2_2026-07-17.md).
   - **✅ S5 ЗАКРЫТ (2026-07-17, Sonnet-код → ревью Кодо):** интеграция в `SceneServer`/панель.
     `SceneServer` DI-инъекция `VolumeTokenizer(window_l=1)`, в `step()` публикует 4-й канал
     `"tokens"` (`_tokens_payload` — чистые примитивы N2, roundtrip через `codec` в тесте).
@@ -68,11 +73,11 @@
     `DataContext` = базовый класс обмена (расширяем; шина `Blackboard`/Observer отдельно, SRP).
     Транспорт ZMQ+MessagePack. Движение: cv+Markov, без рывков. Проектируем сразу под C++.
   - **Таски (Sonnet-код → глубокое ревью Кодо):**
-    P1 [`TASK_body_motion_p1.md`](TASK_body_motion_p1.md) — фундамент (ProjectConfig+шина+motion). ⏳
-    P2 [`TASK_body_motion_p2.md`](TASK_body_motion_p2.md) — splat цели → входы веток 16×16×N. ⏳
+    P1 [`TASK_body_motion_p1.md`](TASK_body_motion_p1.md) — фундамент (ProjectConfig+шина+motion). ✅ РЕАЛИЗОВАН (код+тесты зелёные, проверено Кодо 2026-07-17).
+    P2 [`TASK_body_motion_p2.md`](TASK_body_motion_p2.md) — splat цели → входы веток nx×ny×N. ✅ РЕАЛИЗОВАН (`generators/volume.py`, test_body_motion_volume зелёный).
     P3 [`TASK_body_motion_p3.md`](TASK_body_motion_p3.md) — помехи (заград+гребёнка). ✅ ПРИНЯТО (ревью Кодо 2026-07-15).
     P4 [`TASK_body_motion_p4.md`](TASK_body_motion_p4.md) — несколько целей (Composite). ✅ ПРИНЯТО (ревью Кодо 2026-07-15).
-    P5 [`TASK_body_motion_p5.md`](TASK_body_motion_p5.md) — WaveformToCube (ЛЧМ 2FFT / АМ 3D-FFT). ⏳
+    P5 [`TASK_body_motion_p5.md`](TASK_body_motion_p5.md) — WaveformToCube (ЛЧМ 2FFT / АМ 3D-FFT). ✅ РЕАЛИЗОВАН (`waveforms/waveform_to_cube.py`, test_waveform_to_cube зелёный).
     P6 [`TASK_body_motion_p6.md`](TASK_body_motion_p6.md) — сокет-панель (ZMQ Observer + Dear PyGui). ✅ ПРИНЯТО (ревью Кодо 2026-07-16).
     🎉 **body_motion P1–P6 ПОЛНОСТЬЮ ЗАКРЫТ.**
   - **🔬 Глубокий анализ тасков (2026-07-15):** [`specs/body_motion_3d_tasks_review_2026-07-15.md`](../specs/body_motion_3d_tasks_review_2026-07-15.md)

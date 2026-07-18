@@ -13,10 +13,21 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 import numpy as np  # noqa: E402
-from scipy.stats import kurtosis  # noqa: E402
 
 from common.runner import AssertionGroup, SkipTest, TestRunner  # noqa: E402
 from common.validators import DataValidator  # noqa: E402
+
+
+def _kurtosis(x: np.ndarray) -> float:
+    """Эксцесс Пирсона (fisher=False, Gauss~3): E[(x-μ)⁴]/σ⁴ -- numpy вместо scipy.
+
+    Windows-бэкенд без scipy: `scipy.stats.kurtosis(x, fisher=False)` = mean((x-μ)⁴)/var²
+    (population var, ddof=0) -- совпадает с этой реализацией. Заменяет единственную жёсткую
+    scipy-зависимость набора (kurtosis для IMP_ARC), делая весь тест-набор scipy-free.
+    """
+    a = np.asarray(x, dtype=np.float64)
+    var = a.var()  # population (ddof=0), как scipy.stats.kurtosis
+    return float(((a - a.mean()) ** 4).mean() / (var * var)) if var > 0.0 else 0.0
 from core.config import ArrayConfig  # noqa: E402
 from core.config.config_source import DefaultConfigSource, YamlConfigSource  # noqa: E402
 from core.config.waveform_config import WaveTimeConfig  # noqa: E402
@@ -895,7 +906,7 @@ class GeneratorsTests(TestRunner):
         sig = field.data[0, 0, :]
         mag = np.abs(sig)
 
-        k = float(kurtosis(mag, fisher=False))
+        k = _kurtosis(mag)
         g.add(k > 3.0, f"IMP_ARC должен иметь высокий эксцесс (kurtosis>3, Gauss~3), получено {k:.2f}")
 
         threshold = 3.0 * float(np.std(mag))

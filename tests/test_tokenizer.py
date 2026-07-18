@@ -224,6 +224,40 @@ class RangeAssemblyTests(TestRunner):
             g.add(v.lead_r == 0, f"lead_r должен быть 0, получено {v.lead_r}")
         return g
 
+    def test_almost_dense_run_with_gaps_is_barrage(self) -> AssertionGroup:
+        """Реальный заград джиттерит по углу -> пропуски в r под "боресайтным" углом
+        (fill≈0.9, не строго непрерывно). Должен всё равно дать barrage, не target
+        (см. MemoryBank/specs/tokenizer_barrage_pass2_2026-07-17.md)."""
+        g = AssertionGroup("range.almost_dense_run_with_gaps_is_barrage")
+        rng = np.random.default_rng(42)
+        full = set(range(100))
+        drop = set(rng.choice(100, size=10, replace=False).tolist())
+        r_values = sorted(full - drop)
+        g.add(len(r_values) == 90, f"должно остаться 90 r после 10 пропусков, получено {len(r_values)}")
+
+        tokens = [self._tok(r) for r in r_values]
+        verdicts = assemble_range(tokens)
+        g.add(len(verdicts) == 1, f"должен быть 1 verdict, получено {len(verdicts)}")
+        if verdicts:
+            v = verdicts[0]
+            g.add(v.kind == BARRAGE,
+                  f"почти-сплошной прогон (fill=0.9, с пропусками) -> barrage, получено {v.kind}")
+            g.add(v.lead_r == 0, f"lead_r должен быть 0, получено {v.lead_r}")
+        return g
+
+    def test_sparse_regular_chain_stays_comb(self) -> AssertionGroup:
+        """Регулярная гребёнка с низким fill (0.1) не должна перекваситься в barrage
+        новой fill-веткой -- fill-порог применяется ТОЛЬКО когда fill высокий."""
+        g = AssertionGroup("range.sparse_regular_chain_stays_comb")
+        tokens = [self._tok(r) for r in (0, 10, 20, 30, 40)]
+        verdicts = assemble_range(tokens)
+        g.add(len(verdicts) == 1, f"должен быть 1 verdict, получено {len(verdicts)}")
+        if verdicts:
+            v = verdicts[0]
+            g.add(v.kind == COMB, f"регулярная гребёнка Δr=10 (fill=0.1) -> comb, получено {v.kind}")
+            g.add(v.period_dr == 10.0, f"period_dr должен быть 10.0, получено {v.period_dr}")
+        return g
+
     def test_non_source_tokens_ignored(self) -> AssertionGroup:
         g = AssertionGroup("range.non_source_tokens_ignored")
         smeared_tok = SliceToken(r=3, peaks=(PeakInfo(kx=0.0, ky=0.0, amp=1.0, edge=0.0),),

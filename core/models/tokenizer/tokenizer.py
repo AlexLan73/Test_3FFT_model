@@ -103,6 +103,7 @@ def assemble_range(
     tokens: list[SliceToken],
     min_barrage_run: int = 3,
     period_confirm_ratio: float = 0.99,
+    fill_threshold: float = 0.7,
 ) -> list[RangeVerdict]:
     """Сборка `source`-токенов по дальности под одним углом -> `target`/`comb`/`barrage`.
 
@@ -112,10 +113,15 @@ def assemble_range(
 
     Parameters
     ----------
-    min_barrage_run      : минимальная длина сплошного (без пропусков) участка `r`,
-                            чтобы считать группу `barrage` (иначе -- совпадение 2 target).
+    min_barrage_run      : минимальная длина участка `r` (span = max-min+1), чтобы
+                            считать группу `barrage` (иначе -- совпадение 2 target).
     period_confirm_ratio : порог подтверждения регулярности автокорреляцией индикатора
                             присутствия токена по `r` (см. `_dominant_period`).
+    fill_threshold        : минимальная доля заполнения `n/span`, чтобы считать группу
+                            `barrage` даже с пропусками (реальный заград джиттерит по
+                            углу -- пик иногда уезжает в соседний бин, из-за чего токены
+                            под "боресайтным" углом не строго непрерывны по `r`, см.
+                            `MemoryBank/specs/tokenizer_barrage_pass2_2026-07-17.md`).
     """
     groups: dict[tuple[float, float], set[int]] = {}
     for tok in tokens:
@@ -128,13 +134,16 @@ def assemble_range(
     verdicts: list[RangeVerdict] = []
     for (kx, ky), r_set in groups.items():
         r_list = sorted(r_set)
-        kind, lead_r, period = _classify_group(r_list, min_barrage_run, period_confirm_ratio)
+        kind, lead_r, period = _classify_group(
+            r_list, min_barrage_run, period_confirm_ratio, fill_threshold,
+        )
         verdicts.append(RangeVerdict(kx=kx, ky=ky, kind=kind, lead_r=lead_r, period_dr=period))
     return verdicts
 
 
 def _classify_group(
     r_list: list[int], min_barrage_run: int, period_confirm_ratio: float,
+    fill_threshold: float = 0.7,
 ) -> tuple[str, int, float | None]:
     n = len(r_list)
     if n == 1:
@@ -143,8 +152,12 @@ def _classify_group(
     lo, hi = r_list[0], r_list[-1]
     span = hi - lo + 1
     contiguous = span == n
+    fill = n / span
 
-    if contiguous and span >= min_barrage_run:
+    # barrage по fill-ratio (почти сплошь, ДАЖЕ с пропусками из-за углового джиттера
+    # пика -- §4.9 патент "во всех r подряд" ослаблено до "в почти всех r"). Проверяем
+    # ДО period-ветки, иначе почти-сплошной заград ложно ловится как comb.
+    if span >= min_barrage_run and fill >= fill_threshold:
         return BARRAGE, lo, None
 
     period = _dominant_period(r_list, period_confirm_ratio)
@@ -154,9 +167,9 @@ def _classify_group(
     if contiguous:
         return BARRAGE, lo, None
 
-    # Нерегулярная структура (не одиночка, не сплошь, не подтверждённый период) --
-    # открытый вопрос гл.4 §4.12 (рваная гребёнка -> глубокий уровень LSTM, гл.7,
-    # вне P1). Консервативный fallback: помечаем передний край кандидатом, тип
+    # Нерегулярная структура (не одиночка, не сплошь/почти-сплошь, не подтверждённый
+    # период) -- открытый вопрос гл.4 §4.12 (рваная гребёнка -> глубокий уровень LSTM,
+    # гл.7, вне P1). Консервативный fallback: помечаем передний край кандидатом, тип
     # оставляем "target" (не выдумываем несуществующий 4-й вид на этом уровне).
     return TARGET, lo, None
 
