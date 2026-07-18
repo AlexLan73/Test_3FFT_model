@@ -8,6 +8,12 @@
 
 ## Сейчас в работе
 
+- ✅ **ROI-гейт детекции** (2026-07-18) — `core/models/targeting/roi_gate.py`: `RoiGate` фильтрует
+  `list[Detection]` по зоне интереса вокруг целеуказания (`BeamCommand.center` ± angle_half по углу,
+  target_r ± range_half по дальности; union по beams) — убирает ложные детекции вне ROI (§8 гейтит
+  детекцию). test_roi_gate 7 ok, весь бэкенд 0 fail. Замыкает целеуказание→CFAR.
+
+
 - ✅ **Robust MVDR-nuller** (2026-07-18) — `core/models/anti_barrage/mvdr.py`: `RobustMvdrNuller`
   (Capon `w=R⁻¹a/(aᴴR⁻¹a)` через `np.linalg.solve`, diagonal loading в R). Замыкает находку phase2:
   здесь loading **реально критичен** (обращение R⁻¹), в отличие от subspace-проекции (no-op).

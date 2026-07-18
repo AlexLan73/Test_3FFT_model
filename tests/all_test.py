@@ -28,6 +28,7 @@ from tests.test_generators import GeneratorsTests
 from tests.test_graphics import GraphicsTests
 from tests.test_mvdr import MvdrNullerTests
 from tests.test_nuller import NullerTests
+from tests.test_roi_gate import RoiGateTests
 from tests.test_runtime import (
     CommandTests,
     PanelAppTests,
@@ -57,7 +58,7 @@ SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests, Generator
           CalibrationTests,
           EdgeArbiterTests, CodeArbiterTests, CombinedArbiterTests,
           NearestNeighborTrackerTests,
-          BeamTargetingTests, CognitiveCycleTests,
+          BeamTargetingTests, CognitiveCycleTests, RoiGateTests,
           DiagonalLoadingTests, AntiBarragePipelineTests, MvdrNullerTests]
 
 
