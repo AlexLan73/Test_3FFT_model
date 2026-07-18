@@ -8,6 +8,22 @@
 
 ## Сейчас в работе
 
+- 🎯 **Целеуказание пучка FM-m (гл.8) — замыкает когнитивную петлю** (2026-07-18) — новый пакет
+  `core/models/targeting/`: `BeamCommand` (VO: target_r/center/beam_angles), `Targeting(ABC)`,
+  `BeamTargeting` (пучок лучей в конус неопределённости вокруг цели, `cone_half`/`max_beams`, только
+  `decision=="target"`), `CognitiveCycle` (Facade §8.3: tokenize→arbitrate→target). test_targeting
+  9 ok (BeamTargeting 7 + CognitiveCycle 2), весь бэкенд 0 fail. Sonnet упал 2× на обрыве — Кодо
+  дочитала код + написала тесты сама. 🎉 **Пайплайн базы замкнут: тракт i×j → токенизатор →
+  арбитр (геом.+код) → трекинг → целеуказание.** Дальше активный опрос — с приёмника (вне прототипа).
+
+
+- ✅ **OS-CFAR точная Pfa (Rohling)** (2026-07-18) — исправлена честная девиация в
+  `core/models/tokenizer/cfar.py`: α по CA-приближению → **точная OS-CFAR** (`_os_pfa` формула
+  Rohling `∏(n-i)/(n-i+α)` + `_alpha_os` bisection + k-я порядковая статистика через `np.partition`,
+  кеш α по (n_eff,k)). Проверено Кодо: обратимость точная (α↔Pfa), эмпирич. Pfa 0.0107≈0.01,
+  α_OS=7.42 vs α_CA=8.64 (CA игнорировал k). OsCfarPfaTests 4 ok, весь бэкенд 0 fail. НЕ закоммичено.
+
+
 - 🎯 **Трекинг детекций между тактами (§4-бис.4 «летит»)** (2026-07-18) — новый пакет
   `core/models/tracking/`: `Track` (VO: history/vel_r/vel_angle/is_moving), `Tracker(ABC)`,
   `NearestNeighborTracker` (жадная NN-ассоциация по гейту `Δkx²+Δky²+(w_r·Δr)²`, MNK-скорость,

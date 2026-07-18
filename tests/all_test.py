@@ -36,9 +36,11 @@ from tests.test_smoke import SmokeTests
 from tests.test_snr import SnrTests
 from tests.test_tokenizer import (
     FeatureSeparationTests,
+    OsCfarPfaTests,
     RangeAssemblyTests,
     VolumeTokenizerTests,
 )
+from tests.test_targeting import BeamTargetingTests, CognitiveCycleTests
 from tests.test_tracking import NearestNeighborTrackerTests
 from tests.test_waveform_to_cube import AmToCubeTests, LfmToCubeTests, SquareViewTests
 
@@ -48,9 +50,10 @@ SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests, Generator
           ApertureIxjTests,
           JammerSceneTests, MultiTargetTests,
           TransportTests, CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests,
-          FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests,
+          FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests, OsCfarPfaTests,
           EdgeArbiterTests, CodeArbiterTests, CombinedArbiterTests,
-          NearestNeighborTrackerTests]
+          NearestNeighborTrackerTests,
+          BeamTargetingTests, CognitiveCycleTests]
 
 
 def main() -> int:

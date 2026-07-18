@@ -36,6 +36,7 @@ from core.models.tokenizer import (  # noqa: E402
     VolumeTokenizer,
     assemble_range,
 )
+from core.models.tokenizer.cfar import OsCfarDetector  # noqa: E402
 from core.models.windows import HammingWindow  # noqa: E402
 
 _NX = _NY = 16
@@ -423,8 +424,84 @@ class VolumeTokenizerTests(TestRunner):
         return g
 
 
+# ── 5. OS-CFAR: точная Pfa-формула (Rohling) вместо приближённой CA ──────────
+
+class OsCfarPfaTests(TestRunner):
+    """Проверка точной OS-CFAR Pfa-формулы `_os_pfa`/`_alpha_os` (см. cfar.py).
+
+    Не про VolumeTokenizer -- юнит-тесты самой формулы порядковой статистики,
+    но живут здесь (топик -- токенизатор/CFAR, один файл на тему, см. правило 05).
+    """
+
+    def test_os_pfa_alpha_roundtrip(self) -> AssertionGroup:
+        """`_os_pfa(_alpha_os(n,k,pfa), n, k) ≈ pfa` -- обратимость bisection."""
+        g = AssertionGroup("cfar.os_pfa_alpha_roundtrip")
+        for n, k, pfa in [(16, 12, 1e-3), (8, 6, 1e-2), (32, 24, 1e-4), (4, 1, 5e-2), (4, 4, 1e-3)]:
+            alpha = OsCfarDetector._alpha_os(n, k, pfa)
+            got = OsCfarDetector._os_pfa(alpha, n, k)
+            g.add(abs(got - pfa) / pfa < 1e-3,
+                  f"n={n} k={k} pfa={pfa:.1e}: _os_pfa(alpha={alpha:.4f})={got:.3e} должен ≈ pfa")
+        return g
+
+    def test_os_pfa_monotonic_in_alpha(self) -> AssertionGroup:
+        """Pfa(alpha, N, k) монотонно убывает по alpha -- ключевое свойство для bisection."""
+        g = AssertionGroup("cfar.os_pfa_monotonic_in_alpha")
+        n, k = 16, 12
+        alphas = [0.0, 0.5, 1.0, 2.0, 5.0, 10.0, 50.0]
+        pfas = [OsCfarDetector._os_pfa(a, n, k) for a in alphas]
+        g.add(pfas[0] == 1.0, f"Pfa(alpha=0)={pfas[0]} должен быть 1.0")
+        for i in range(len(pfas) - 1):
+            g.add(pfas[i] > pfas[i + 1],
+                  f"Pfa должна убывать: alpha={alphas[i]}->{pfas[i]:.4f}, alpha={alphas[i+1]}->{pfas[i+1]:.4f}")
+        return g
+
+    def test_alpha_os_vs_alpha_ca_differ(self) -> AssertionGroup:
+        """α по точной OS-формуле и приближённой CA-формуле должны заметно различаться."""
+        g = AssertionGroup("cfar.alpha_os_vs_alpha_ca_differ")
+        det = OsCfarDetector(pfa=1e-3, percentile=75.0)
+        n, k = 16, 12
+        alpha_os = det._alpha_os(n, k, det._pfa)
+        alpha_ca = det._alpha_for(n)
+        g.add(alpha_os > 0.0, f"alpha_os={alpha_os:.4f} должен быть > 0")
+        g.add(alpha_ca > 0.0, f"alpha_ca={alpha_ca:.4f} должен быть > 0")
+        g.add(abs(alpha_os - alpha_ca) / alpha_ca > 0.05,
+              f"OS и CA альфа должны заметно различаться: alpha_os={alpha_os:.4f} vs alpha_ca={alpha_ca:.4f}")
+        return g
+
+    def test_empirical_pfa_matches_target_on_exponential_noise(self) -> AssertionGroup:
+        """Монте-Карло: доля ложных срабатываний CFAR на чистом эксп. шуме ≈ target pfa.
+
+        `rng.exponential(1.0, size)` -- мощность |A|² Рэлеевской амплитуды (масштаб
+        не важен: OS-CFAR порог `alpha*X_(k)` инвариантен к масштабу шума). Берём
+        крупный pfa=1e-2, чтобы не гонять миллионы ячеек ради статистики (разброс
+        Монте-Карло ожидаем в пределах ~фактора 5).
+        """
+        g = AssertionGroup("cfar.empirical_pfa_matches_target")
+        target_pfa = 1e-2
+        det = OsCfarDetector(pfa=target_pfa, main_half=1, guard_half=2, percentile=75.0)
+        rng = np.random.default_rng(777)
+        n_trials = 30
+        n_side = 20  # 20x20 карта на прогон, край исключаем (усечённое train-кольцо -> другое n_eff/k)
+        false_alarms = 0
+        total_interior_cells = 0
+        half = det._guard_half
+        for _ in range(n_trials):
+            power = rng.exponential(1.0, size=(n_side, n_side))
+            mask = det.detect_mask(power)
+            interior = mask[half:-half, half:-half]
+            false_alarms += int(np.sum(interior))
+            total_interior_cells += interior.size
+        empirical_pfa = false_alarms / total_interior_cells
+        g.add(0.0 <= empirical_pfa, "эмпирическая Pfa должна быть неотрицательной")
+        ratio = empirical_pfa / target_pfa if empirical_pfa > 0 else 0.0
+        g.add(empirical_pfa < target_pfa * 5.0,
+              f"эмпирич. Pfa={empirical_pfa:.4f} не должна намного превышать target={target_pfa:.4f} "
+              f"(ratio={ratio:.2f}, N={total_interior_cells} внутр. ячеек за {n_trials} прогонов)")
+        return g
+
+
 if __name__ == "__main__":
     ok = True
-    for cls in (FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests):
+    for cls in (FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests, OsCfarPfaTests):
         ok = cls().run_all() and ok
     sys.exit(0 if ok else 1)
