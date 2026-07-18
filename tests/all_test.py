@@ -39,6 +39,7 @@ from tests.test_tokenizer import (
     RangeAssemblyTests,
     VolumeTokenizerTests,
 )
+from tests.test_tracking import NearestNeighborTrackerTests
 from tests.test_waveform_to_cube import AmToCubeTests, LfmToCubeTests, SquareViewTests
 
 SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests, GeneratorsTests,
@@ -48,7 +49,8 @@ SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, SnrTests, Generator
           JammerSceneTests, MultiTargetTests,
           TransportTests, CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests,
           FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests,
-          EdgeArbiterTests, CodeArbiterTests, CombinedArbiterTests]
+          EdgeArbiterTests, CodeArbiterTests, CombinedArbiterTests,
+          NearestNeighborTrackerTests]
 
 
 def main() -> int:
