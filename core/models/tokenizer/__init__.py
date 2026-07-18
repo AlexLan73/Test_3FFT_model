@@ -3,7 +3,7 @@
 `SquareView`/`SquareToken` (`core/graphics/square_view.py`) остаются нетронутыми
 (контрольный вид reduce+argmax) -- это полноценный OS-CFAR-детектор поверх них.
 """
-from .arbiter import Arbiter, CodeArbiter, EdgeArbiter, TargetDecision
+from .arbiter import Arbiter, CodeArbiter, CombinedArbiter, EdgeArbiter, TargetDecision, fm_correlate
 from .cfar import OsCfarDetector
 from .features import FeatureExtractor, FeatureVector
 from .tokenizer import VolumeTokenizer, assemble_range
@@ -25,5 +25,5 @@ __all__ = [
     "TARGET", "COMB", "BARRAGE",
     "SliceTriage", "RuleBasedTriage",
     "VolumeTokenizer", "assemble_range",
-    "TargetDecision", "Arbiter", "EdgeArbiter", "CodeArbiter",
+    "TargetDecision", "Arbiter", "EdgeArbiter", "CodeArbiter", "CombinedArbiter", "fm_correlate",
 ]
