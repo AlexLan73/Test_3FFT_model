@@ -247,9 +247,14 @@ class Ex4Flight(DemoRunner):
         return tuple(out)
 
     # ── основной прогон ──────────────────────────────────────────────────────
-    def visualize(self, ctx: DemoContext) -> dict[str, Figure]:
+    def run_history(self, rng: np.random.Generator) -> list[TactRecord]:
+        """Прогнать конвейер по тактам и заполнить `self._history` + `self._stats`.
+
+        Вынесено из `visualize` (спека web_panel_flight §0): история — ЕДИНСТВЕННЫЙ
+        источник для всех рендереров (GIF/PNG/web, R5 — второй раз не считать);
+        web-страница зовёт только этот метод, без matplotlib-рендеров.
+        """
         p = self._p
-        rng = ctx.rng
         ex3 = self._ex3()
         cfg = ex3._cfg()
         kin = Kinematics(cfg)
@@ -325,7 +330,11 @@ class Ex4Flight(DemoRunner):
             "models": f"target={target.model_name}, comb={carrier.model_name}",
             "tracks_final": len(self._history[-1].tracks) if self._history else 0,
         }
+        return self._history
 
+    def visualize(self, ctx: DemoContext) -> dict[str, Figure]:
+        p = self._p
+        self.run_history(ctx.rng)
         figures: dict[str, Figure] = {}
         figures["last_frame"] = self._compose_frame(len(self._history) - 1, trail=p.k_trail)
         figures["trajectory"] = self._fig_trajectory()

@@ -6,6 +6,7 @@
 from .arbiter import Arbiter, CodeArbiter, CombinedArbiter, EdgeArbiter, TargetDecision, fm_correlate
 from .cfar import OsCfarDetector
 from .features import FeatureExtractor, FeatureVector
+from .peak_refine import RefinedPeak, axis_value_at, parabolic_delta, refine_peak
 from .tokenizer import VolumeTokenizer, assemble_range
 from .tokens import (
     BARRAGE,
@@ -20,6 +21,7 @@ from .triage import NOISE, SMEARED, SOURCE, RuleBasedTriage, SliceTriage
 __all__ = [
     "FeatureVector", "FeatureExtractor",
     "OsCfarDetector",
+    "RefinedPeak", "refine_peak", "parabolic_delta", "axis_value_at",
     "PeakInfo", "SliceToken", "RangeVerdict",
     "NOISE", "SOURCE", "SMEARED",
     "TARGET", "COMB", "BARRAGE",

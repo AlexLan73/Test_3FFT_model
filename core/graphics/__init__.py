@@ -1,4 +1,5 @@
 from .angular_map import AngularMapVisualizer
+from .camera import Projection
 from .cube_scatter import CubeScatterVisualizer
 from .layout import AxisLayout
 from .range_profile import RangeProfileVisualizer
@@ -14,7 +15,7 @@ from .writer import FigureWriter
 
 __all__ = [
     "Visualizer", "CubeScatterVisualizer", "AngularMapVisualizer",
-    "RangeProfileVisualizer", "FigureWriter", "AxisLayout", "CubeSampler",
+    "RangeProfileVisualizer", "FigureWriter", "AxisLayout", "CubeSampler", "Projection",
     "SquareView", "SquareToken",
     "ScenePoint", "SceneMarker", "ScenePointsVisualizer",
 ]

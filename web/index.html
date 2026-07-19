@@ -1,64 +1,76 @@
 <!DOCTYPE html>
-<html lang="ru">
-<head>
-<meta charset="UTF-8" />
-<title>radar3d -- веб-дашборд (P6)</title>
+<html lang="ru"><head><meta charset="utf-8">
+<title>ex4 · полёт — живая панель по сокету (канон §1.6)</title>
 <style>
-  :root { color-scheme: dark; }
-  body { margin: 0; background: #0d1117; color: #c9d1d9; font-family: system-ui, sans-serif; }
-  header { padding: 8px 12px; background: #161b22; border-bottom: 1px solid #30363d;
-           display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-  header input[type="text"] { background: #0d1117; color: #c9d1d9; border: 1px solid #30363d;
-                               padding: 4px 8px; width: 260px; }
-  header button { background: #238636; color: white; border: none; padding: 6px 12px;
-                  border-radius: 4px; cursor: pointer; }
-  main { display: grid; grid-template-columns: 1fr 340px; gap: 8px; padding: 8px; height: calc(100vh - 60px); }
-  #scene3d { background: #0d1117; border: 1px solid #30363d; }
-  aside { display: flex; flex-direction: column; gap: 8px; overflow: auto; }
-  fieldset { border: 1px solid #30363d; border-radius: 6px; }
-  legend { color: #8b949e; padding: 0 4px; }
-  #squares_canvas { background: #0d1117; border: 1px solid #30363d; image-rendering: pixelated; }
-  #tracks_info, #log { white-space: pre-wrap; font-family: monospace; font-size: 12px;
-                        max-height: 160px; overflow: auto; }
-</style>
-</head>
-<body>
+  :root { --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#c9d1d9; --dim:#8b949e;
+          --trk:#58a6ff; --comb:#f0883e; --bar:#f85149; --lime:#7ee787; }
+  body { background:var(--bg); color:var(--fg); font:13px/1.45 "Segoe UI",sans-serif; margin:0; }
+  header { padding:8px 16px; border-bottom:1px solid var(--line); display:flex; gap:12px;
+           align-items:center; flex-wrap:wrap; }
+  h1 { font-size:15px; margin:0 8px 0 0; font-weight:600; }
+  button, select, input[type=text] { background:var(--panel); color:var(--fg);
+           border:1px solid var(--line); border-radius:6px; padding:4px 10px; cursor:pointer;
+           font-size:13px; }
+  input[type=text] { cursor:text; width:200px; }
+  button.on { border-color:var(--comb); color:var(--comb); }
+  button.conn { border-color:var(--lime); color:var(--lime); }
+  input[type=range] { width:220px; vertical-align:middle; }
+  .wrap { display:flex; gap:12px; padding:12px 16px; flex-wrap:wrap; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px;
+          padding:8px 10px; }
+  .card h2 { font-size:12px; margin:0 0 6px; color:var(--dim); font-weight:600; }
+  canvas { display:block; }
+  .slrow { display:flex; gap:10px; }
+  .sl { text-align:center; cursor:pointer; }
+  .sl .cap { font-size:10.5px; color:var(--dim); margin-top:3px; white-space:nowrap; }
+  .sl canvas { border:2px solid transparent; border-radius:4px; }
+  .sl.sel canvas { border-color:var(--comb); }
+  table { border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+  td, th { padding:3px 9px; text-align:right; border-bottom:1px solid var(--line); }
+  th { color:var(--dim); font-weight:600; cursor:help; }
+  tr.sel td { background:#21262d; }
+  tr { cursor:pointer; }
+  .mv { color:var(--lime); font-weight:600; } .no { color:var(--dim); }
+  #legend { display:none; font-size:12px; color:var(--dim); max-width:900px; }
+  #legend.show { display:block; }
+  #legend b { color:var(--fg); }
+  #status { color:var(--dim); }
+  #status b { color:var(--bar); font-weight:600; }
+  #connState { color:var(--dim); font-size:12px; }
+  #connState.live { color:var(--lime); }
+</style></head><body>
 <header>
-  <strong>radar3d -- панель (веб, P6)</strong>
-  <label>WS: <input id="ws_url" type="text" value="ws://127.0.0.1:8765" /></label>
-  <button id="connect_btn">Подключиться</button>
-  <label>+-N плоскостей: <input id="neighbor_planes" type="range" min="0" max="20" value="5" />
-    <span id="neighbor_planes_label">5</span></label>
+  <h1>ex4 · полёт: живая панель по сокету</h1>
+  <input type="text" id="wsUrl" value="ws://127.0.0.1:8765">
+  <button id="connect" class="conn">подключиться</button>
+  <span id="connState">не подключено</span>
+  <button id="play" class="on">⏸ пауза</button>
+  <select id="speed"><option value="400">0.5×</option><option value="200" selected>1×</option>
+    <option value="100">2×</option></select>
+  <input type="range" id="tick" min="0" value="0">
+  <span id="status"></span>
+  <button id="trails" class="on">след: вкл</button>
+  <button id="resetView">сброс вида</button>
+  <button id="legendBtn">описание признаков</button>
 </header>
-<main>
-  <div id="scene3d"></div>
-  <aside>
-    <fieldset>
-      <legend>Квадрат 16x16 (reduce по дальности)</legend>
-      <canvas id="squares_canvas" width="320" height="320"></canvas>
-    </fieldset>
-    <fieldset>
-      <legend>Треки (targets + jammers)</legend>
-      <div id="tracks_info">(нет данных)</div>
-    </fieldset>
-    <fieldset>
-      <legend>Лог</legend>
-      <div id="log"></div>
-    </fieldset>
-  </aside>
-</main>
-
-<!-- Three.js (3D-сцена) -- CDN, без сборки -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<!-- @msgpack/msgpack (декод msgpack-кадров транспорта, N2 -- стандартный msgpack, НЕ py-ext) -->
-<script src="https://cdn.jsdelivr.net/npm/@msgpack/msgpack@3.0.0-beta2/dist.umd.min.js"></script>
-<script>
-  // UMD-бандл @msgpack/msgpack публикует себя как `window.MessagePack`.
-  if (typeof MessagePack === "undefined" && typeof msgpack !== "undefined") {
-    window.MessagePack = msgpack;
-  }
-</script>
-<script src="codec.js"></script>
+<div class="wrap">
+  <div class="card"><h2>① 3D (kx × позиция × ky) — вращать мышью, зум колесом ·
+      <span style="color:var(--trk)">▲цель</span> · <span style="color:var(--comb)">▲носитель</span> ·
+      <span style="color:var(--bar)">▎barrage</span> · точки=детекции (дБ)</h2>
+    <canvas id="c3d" width="560" height="540"></canvas></div>
+  <div class="card"><h2>② поле kx×ky: треки, след K тактов · № + ✈=летит ·
+      <span style="color:var(--comb)">△гребёнка</span> · <span style="color:var(--bar)">▢barrage</span> ·
+      <span style="color:#a371f7">📡 др. радар</span> · <span style="color:#3fb950">◉ радиолюбитель</span></h2>
+    <canvas id="fld" width="540" height="540"></canvas></div>
+</div>
+<div class="wrap">
+  <div class="card"><h2>③ срезы по трекам (окно 16, кроп ±8 бинов, дБ)</h2>
+    <div class="slrow" id="slices"></div></div>
+  <div class="card"><h2>③ параметры треков (признаки §4.11 — финальный такт) ·
+      клик по строке = выбор</h2>
+    <table id="tbl"></table>
+    <div id="legend"></div></div>
+</div>
+<script src="msgpack.js"></script>
 <script src="app.js"></script>
-</body>
-</html>
+</body></html>

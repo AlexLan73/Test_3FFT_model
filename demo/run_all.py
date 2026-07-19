@@ -25,11 +25,12 @@ from demo.ex1_am_line.stft_detect import Ex1StftDetect
 from demo.ex2_am_square.example import Ex2AmSquare
 from demo.ex3_am_barrage.example import Ex3AmBarrage
 from demo.ex4_flight.example import Ex4Flight
+from demo.ex5_peak_refine.example import Ex5PeakRefine
 
 
 def _build_examples() -> list[DemoRunner]:
     return [Ex1AmLine(), Ex1Denoise(), Ex1StftDetect(), Ex1Matched(), Ex2AmSquare(),
-            Ex3AmBarrage(), Ex4Flight()]
+            Ex3AmBarrage(), Ex4Flight(), Ex5PeakRefine()]
 
 
 def main() -> None:

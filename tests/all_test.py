@@ -23,6 +23,7 @@ from tests.test_body_motion_multi import MultiTargetTests
 from tests.test_anti_barrage_pipeline import AntiBarragePipelineTests, DiagonalLoadingTests
 from tests.test_body_motion_volume import VolumeBuilderTests
 from tests.test_calibration import CalibrationTests
+from tests.test_camera import CameraTests
 from tests.test_cfar import CfarTests
 from tests.test_clustering import ClusteringTests
 from tests.test_generators import GeneratorsTests
@@ -30,6 +31,7 @@ from tests.test_graphics import GraphicsTests
 from tests.test_integration import FullPipelineIntegrationTests
 from tests.test_mvdr import MvdrNullerTests
 from tests.test_nuller import NullerTests
+from tests.test_peak_refine import PeakRefineTests
 from tests.test_roi_gate import RoiGateTests
 from tests.test_runtime import (
     CommandTests,
@@ -50,13 +52,14 @@ from tests.test_targeting import BeamTargetingTests, CognitiveCycleTests
 from tests.test_tracking import NearestNeighborTrackerTests
 from tests.test_waveform_to_cube import AmToCubeTests, LfmToCubeTests, SquareViewTests
 
-SUITES = [SmokeTests, GraphicsTests, NullerTests, CfarTests, ClusteringTests, SnrTests, GeneratorsTests,
+SUITES = [SmokeTests, CameraTests, GraphicsTests, NullerTests, CfarTests, ClusteringTests, SnrTests, GeneratorsTests,
           ProjectConfigTests, MessageBusTests, MotionModelTests, KinematicsTests,
           VolumeBuilderTests, LfmToCubeTests, AmToCubeTests, SquareViewTests,
           ApertureIxjTests,
           JammerSceneTests, MultiTargetTests,
           TransportTests, CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests,
           FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests, OsCfarPfaTests,
+          PeakRefineTests,
           CalibrationTests,
           EdgeArbiterTests, CodeArbiterTests, CombinedArbiterTests,
           NearestNeighborTrackerTests,
