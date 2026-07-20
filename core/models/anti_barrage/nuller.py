@@ -16,6 +16,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ._covariance import apply_diagonal_loading, reshape_datacube, sample_covariance
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Value Object — отчёт нуллера
 # ──────────────────────────────────────────────────────────────────────────────
@@ -101,11 +103,6 @@ class SubspaceNuller:
 
     # ── внутренние вспомогательные ──────────────────────────────────────────
 
-    def _reshape(self, datacube: np.ndarray) -> np.ndarray:
-        """datacube (nx, ny, K) → x_mat (M, K), M = nx*ny.  complex128 для точности."""
-        nx, ny, k_snap = datacube.shape
-        return datacube.reshape(nx * ny, k_snap).astype(np.complex128, copy=False)
-
     def _eigh(self, datacube: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Ковариация (R = X@X.H/K) [+ diagonal loading] + EVD.
 
@@ -115,14 +112,9 @@ class SubspaceNuller:
         Diagonal loading (§phase2, loading > 0): R' = R + loading·(tr(R)/M)·I —
         робастность EVD к малой выборке (K < M). loading=0 → без изменений (phase1).
         """
-        x_mat = self._reshape(datacube)                     # X (M, K)
-        k_snap = x_mat.shape[1]
-        r_cov = (x_mat @ x_mat.conj().T) / k_snap          # R (M, M), эрмитова
-        if self._loading > 0.0:
-            m_elem = r_cov.shape[0]
-            r_cov = r_cov + self._loading * (np.trace(r_cov).real / m_elem) * np.eye(
-                m_elem, dtype=r_cov.dtype
-            )
+        x_mat = reshape_datacube(datacube)                  # X (M, K)
+        r_cov = sample_covariance(x_mat)                    # R (M, M), эрмитова
+        r_cov = apply_diagonal_loading(r_cov, self._loading)
         lambdas, e_vecs = np.linalg.eigh(r_cov)            # ascending: λ₀ ≤ … ≤ λ_{M-1}
         e_jam = e_vecs[:, -self._n_jammers:]                # доминантные (помеха)
         return x_mat, lambdas, e_jam

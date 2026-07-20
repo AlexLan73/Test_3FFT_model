@@ -9,6 +9,7 @@ from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 
 from ..models import SpectralCube
+from .layout import AxisLayout
 from .visualizer import Visualizer
 
 
@@ -20,6 +21,9 @@ class AngularMapVisualizer(Visualizer):
     def render(self, cube: SpectralCube) -> Figure:
         e = cube.angular_energy_db()
         kx, ky = cube.kx.values, cube.ky.values
+        layout = AxisLayout.range_vertical()  # только kx/ky-подписи нужны здесь, ось z не используется
+        _, kx_label, _ = layout.resolve(cube, "kx")
+        _, ky_label, _ = layout.resolve(cube, "ky")
         fig, ax = plt.subplots(figsize=(7, 6))
         im = ax.imshow(e.T, origin="lower", cmap="turbo", vmin=-25, vmax=0,
                        extent=(float(kx[0]), float(kx[-1]) + 1.0, float(ky[0]), float(ky[-1]) + 1.0),
@@ -27,8 +31,8 @@ class AngularMapVisualizer(Visualizer):
         ax.add_patch(Rectangle((self._gx - self._gh, self._gy - self._gh),
                                2 * self._gh, 2 * self._gh, fill=False,
                                ec="r", lw=2))
-        ax.set_xlabel("kx (азимут)")
-        ax.set_ylabel("ky (угол места)")
+        ax.set_xlabel(kx_label)
+        ax.set_ylabel(ky_label)
         ax.set_title("Угловая карта энергии (красный -- гейт обзора)")
         fig.colorbar(im, ax=ax, label="дБ", shrink=0.85)
         fig.tight_layout()

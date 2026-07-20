@@ -46,6 +46,20 @@ def _direction_from_az_el(az: float, el: float) -> np.ndarray:
     ])
 
 
+def _integrate_state(state: TargetState, new_vel: np.ndarray, dt: float) -> TargetState:
+    """Semi-implicit интегрирование: ускорение из перепада скорости, позиция -- по нему.
+
+    Общая формула для `MarkovDrift`/`CoordinatedTurn`/`WeavingManeuver`: модель сама
+    решает, какой должна стать скорость на такте (`new_vel`), а ускорение и позиция
+    получаются одинаково:
+        acc     = (new_vel - state.vel) / dt   (0, если dt слишком мал)
+        new_pos = state.pos + state.vel * dt + 0.5 * acc * dt**2
+    """
+    acc = (new_vel - state.vel) / dt if dt > _EPS else np.zeros(3)
+    new_pos = state.pos + state.vel * dt + 0.5 * acc * dt * dt
+    return state.evolved(pos=new_pos, vel=new_vel, acc=acc)
+
+
 @dataclass
 class ConstantVelocity:
     """Прямолинейное равномерное движение: `pos += vel * dt`."""
@@ -84,9 +98,7 @@ class MarkovDrift:
         new_speed = max(speed + d_speed, 0.0)
 
         new_vel = new_direction * new_speed
-        acc = (new_vel - state.vel) / dt if dt > _EPS else np.zeros(3)
-        new_pos = state.pos + state.vel * dt + 0.5 * acc * dt * dt
-        return state.evolved(pos=new_pos, vel=new_vel, acc=acc)
+        return _integrate_state(state, new_vel, dt)
 
 
 @dataclass
@@ -106,9 +118,7 @@ class CoordinatedTurn:
         new_vx = vx * cos_t - vz * sin_t
         new_vz = vx * sin_t + vz * cos_t
         new_vel = np.array([new_vx, vy, new_vz])
-        acc = (new_vel - state.vel) / dt if dt > _EPS else np.zeros(3)
-        new_pos = state.pos + state.vel * dt + 0.5 * acc * dt * dt
-        return state.evolved(pos=new_pos, vel=new_vel, acc=acc)
+        return _integrate_state(state, new_vel, dt)
 
 
 @dataclass
@@ -168,6 +178,4 @@ class WeavingManeuver:
         new_dir = _direction_from_az_el(az + d_az, el + d_el)
         new_speed = max(speed + d_speed, self.min_speed)
         new_vel = new_dir * new_speed
-        acc = (new_vel - state.vel) / dt if dt > _EPS else np.zeros(3)
-        new_pos = state.pos + state.vel * dt + 0.5 * acc * dt * dt
-        return state.evolved(pos=new_pos, vel=new_vel, acc=acc)
+        return _integrate_state(state, new_vel, dt)

@@ -34,6 +34,7 @@ from tests.test_nuller import NullerTests
 from tests.test_peak_refine import PeakRefineTests
 from tests.test_raw_queue import FileSourceTests, RawQueueTests
 from tests.test_roi_gate import RoiGateTests
+from tests.test_run_workspace import RunWorkspaceSceneJammersTests
 from tests.test_runtime import (
     CommandTests,
     PanelAppTests,
@@ -71,6 +72,7 @@ SUITES = [SmokeTests, CameraTests, GraphicsTests, NullerTests, CfarTests, Cluste
           NearestNeighborTrackerTests,
           BeamTargetingTests, CognitiveCycleTests, RoiGateTests,
           DiagonalLoadingTests, AntiBarragePipelineTests, MvdrNullerTests,
+          RunWorkspaceSceneJammersTests,
           FullPipelineIntegrationTests]
 
 

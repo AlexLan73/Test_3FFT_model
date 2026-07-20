@@ -3,11 +3,17 @@
 result.py — Value Objects для результатов тестов
 ==================================================
 
-Value Objects (GoF) — неизменяемые объекты, идентифицируются по значению.
+Value Objects (GoF) — идентифицируются по значению (не по identity).
+
+`ValidationResult` иммутабелен по факту использования (создаётся и не мутируется).
+`TestResult` -- НЕ иммутабелен: `.add()` -- fluent API, мутирует `self.validations`
+и возвращает self (см. докстринг `.add()`). Frozen dataclass здесь не подходит --
+сломал бы мутирующий `.add()`, которым пользуется вызывающий код "по месту" (сборка
+результата теста в цикле проверок).
 
 Classes:
     ValidationResult — результат одной проверки (passed/failed + метрика)
-    TestResult       — результат всего теста (имя + список ValidationResult)
+    TestResult       — результат всего теста (имя + список ValidationResult), мутабельный
 """
 
 from dataclasses import dataclass, field

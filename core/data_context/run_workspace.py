@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from ..config import (
     ArrayConfig,
@@ -19,6 +19,7 @@ from ..config import (
     DrfmCombSpec,
     EmitterSpec,
     HamEmitterSpec,
+    JammerFlags,
     ProjectConfig,
     RangeConfig,
     SceneConfig,
@@ -59,10 +60,21 @@ def config_to_dict(cfg: SimulationConfig | ProjectConfig) -> dict[str, Any]:
 
 
 def _scene_to_dict(scene: SceneConfig) -> dict[str, Any]:
-    return {
+    """SceneConfig -> dict. H2: сериализует ВСЕ поля (не только emitters+thermal) --
+    иначе `jammers`/`barrage_spec`/`comb_spec`/`ham_spec` теряются на роундтрипе
+    (см. `project_config_from_dict`, парная сборка ниже)."""
+    data: dict[str, Any] = {
         "emitters": [_emitter_to_dict(e) for e in scene.emitters],
         "thermal": {"power": scene.thermal.power},
+        "jammers": asdict(scene.jammers),
     }
+    if scene.barrage_spec is not None:
+        data["barrage_spec"] = _emitter_to_dict(scene.barrage_spec)
+    if scene.comb_spec is not None:
+        data["comb_spec"] = _emitter_to_dict(scene.comb_spec)
+    if scene.ham_spec is not None:
+        data["ham_spec"] = _emitter_to_dict(scene.ham_spec)
+    return data
 
 
 def project_config_to_dict(cfg: ProjectConfig) -> dict[str, Any]:
@@ -96,9 +108,25 @@ def project_config_from_dict(data: dict[str, Any]) -> ProjectConfig:
     wave_array_raw = wave_raw.get("array", {})
     scene_raw = data.get("scene", {})
 
+    jammers_raw = scene_raw.get("jammers", {})
     scene = SceneConfig(
         emitters=tuple(_emitter_from_dict(e) for e in scene_raw.get("emitters", [])),
         thermal=ThermalNoiseSpec(power=float(scene_raw.get("thermal", {}).get("power", 0.02))),
+        jammers=JammerFlags(
+            barrage=bool(jammers_raw.get("barrage", False)),
+            comb=bool(jammers_raw.get("comb", False)),
+            ham=bool(jammers_raw.get("ham", False)),
+            cw=bool(jammers_raw.get("cw", False)),
+            vfd=bool(jammers_raw.get("vfd", False)),
+            arc=bool(jammers_raw.get("arc", False)),
+            clutter=bool(jammers_raw.get("clutter", False)),
+        ),
+        barrage_spec=cast(BarrageSpec, _emitter_from_dict(scene_raw["barrage_spec"]))
+        if "barrage_spec" in scene_raw else None,
+        comb_spec=cast(DrfmCombSpec, _emitter_from_dict(scene_raw["comb_spec"]))
+        if "comb_spec" in scene_raw else None,
+        ham_spec=cast(HamEmitterSpec, _emitter_from_dict(scene_raw["ham_spec"]))
+        if "ham_spec" in scene_raw else None,
     )
     wave = WaveTimeConfig(
         fs=float(wave_raw.get("fs", 12e6)),

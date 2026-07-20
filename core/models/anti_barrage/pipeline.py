@@ -13,14 +13,15 @@ from __future__ import annotations
 import numpy as np
 
 from ..base import RadarModel
+from .base import Nuller
 from .cfar import CaCfarDetector, Detection
-from .nuller import SubspaceNuller
 
 
 class AntiBarragePipeline:
     """Единый anti-barrage тракт (§phase2): подавить заград по углу
-    (SubspaceNuller) -> преобразовать в спектральный куб (RadarModel,
-    например Fft3DModel) -> детектировать цель по дальности (CaCfarDetector).
+    (Nuller, напр. SubspaceNuller) -> преобразовать в спектральный куб
+    (RadarModel, например Fft3DModel) -> детектировать цель по дальности
+    (CaCfarDetector).
 
     Facade над тремя готовыми компонентами (DI, Composition Root в
     main.py/demo связывает конкретные реализации). Вход process() не
@@ -29,9 +30,11 @@ class AntiBarragePipeline:
 
     Parameters
     ----------
-    nuller : SubspaceNuller
-        Угловое подавление помехи (EVD ковариации, опционально с diagonal
-        loading — см. `SubspaceNuller.loading`).
+    nuller : Nuller
+        Угловое подавление помехи (Strategy/DIP — см. `Nuller`). В проекте
+        подключается `SubspaceNuller` (EVD ковариации, опционально с diagonal
+        loading — см. `SubspaceNuller.loading`); `RobustMvdrNuller` соответствует
+        тому же контракту, но в pipeline пока не подключается.
     fft_model : RadarModel
         Преобразование очищенного сырого куба (nx, ny, K) в SpectralCube
         (напр. Fft3DModel) — согласующее звено между doменами nuller и cfar.
@@ -41,7 +44,7 @@ class AntiBarragePipeline:
 
     def __init__(
         self,
-        nuller: SubspaceNuller,
+        nuller: Nuller,
         fft_model: RadarModel,
         cfar: CaCfarDetector,
     ) -> None:

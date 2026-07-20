@@ -118,21 +118,16 @@ class SpectrumSnrEstimator:
     def config(self) -> SnrConfig:
         return self._cfg
 
-    def estimate(
-        self,
-        signal: np.ndarray,
-        support: slice | None = None,  # игнорируется — спектру ground-truth не нужен
-    ) -> SnrResult:
-        """Оценить SNR_fft.  support игнорируется.
+    def _spectrum(self, signal: np.ndarray) -> tuple[np.ndarray, int, int]:
+        """Шаги 1–4 пайплайна: decimation → window → zero-pad → FFT → |X|².
 
-        Parameters
-        ----------
-        signal  : complex[n_samples]
-        support : игнорируется (для совместимости с Protocol)
+        Общий код для `estimate()` (продолжает CFAR-детектом пика) и `get_mag_sq()`
+        (диагностика/графики, без CFAR) — вынесено, чтобы не дублировать формулу.
 
         Returns
         -------
-        SnrResult с method="spectrum", k_peak, peak, noise заполнены.
+        tuple[np.ndarray, int, int]
+            (mag_sq[n_fft] float32, n_actual, n_fft).
         """
         cfg = self._cfg
         n_samples = len(signal)
@@ -159,6 +154,26 @@ class SpectrumSnrEstimator:
         spectrum = np.fft.fft(padded, n=n_fft)
         mag_sq = (spectrum.real * spectrum.real +
                   spectrum.imag * spectrum.imag).astype(np.float32)
+        return mag_sq, n_actual, n_fft
+
+    def estimate(
+        self,
+        signal: np.ndarray,
+        support: slice | None = None,  # игнорируется — спектру ground-truth не нужен
+    ) -> SnrResult:
+        """Оценить SNR_fft.  support игнорируется.
+
+        Parameters
+        ----------
+        signal  : complex[n_samples]
+        support : игнорируется (для совместимости с Protocol)
+
+        Returns
+        -------
+        SnrResult с method="spectrum", k_peak, peak, noise заполнены.
+        """
+        cfg = self._cfg
+        mag_sq, _n_actual, n_fft = self._spectrum(signal)
 
         # 5. argmax
         search_end = n_fft if cfg.search_full_spectrum else n_fft // 2
@@ -196,23 +211,7 @@ class SpectrumSnrEstimator:
 
         Те же шаги 1–4, что и в estimate(), без CFAR.
         """
-        cfg = self._cfg
-        n_samples = len(signal)
-        step, n_actual, n_fft = compute_pipeline_sizes(
-            n_samples, cfg.target_n_fft, cfg.step_samples
-        )
-        decimated = signal[::step][:n_actual].astype(np.complex64)
-        if cfg.window != "rect":
-            w = _make_window(cfg.window, n_actual)
-            decimated = (decimated * w).astype(np.complex64)
-        if n_actual < n_fft:
-            padded = np.zeros(n_fft, dtype=np.complex64)
-            padded[:n_actual] = decimated
-        else:
-            padded = decimated[:n_fft]
-        spectrum = np.fft.fft(padded, n=n_fft)
-        mag_sq = (spectrum.real ** 2 + spectrum.imag ** 2).astype(np.float32)
-        return mag_sq, n_actual, n_fft
+        return self._spectrum(signal)
 
 
 # ── StatisticsSnrEstimator ───────────────────────────────────────────────────

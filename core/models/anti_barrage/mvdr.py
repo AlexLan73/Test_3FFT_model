@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from ._covariance import apply_diagonal_loading, reshape_datacube, sample_covariance
+
 
 class RobustMvdrNuller:
     """MVDR (Capon) beamformer: адаптивный луч на цель, помеха подавляется адаптивно.
@@ -44,25 +46,14 @@ class RobustMvdrNuller:
 
     # ── внутренние вспомогательные ──────────────────────────────────────────
 
-    def _reshape(self, datacube: np.ndarray) -> np.ndarray:
-        """datacube (nx, ny, K) → x_mat (M, K), M = nx*ny.  complex128 для точности."""
-        nx, ny, k_snap = datacube.shape
-        return datacube.reshape(nx * ny, k_snap).astype(np.complex128, copy=False)
-
     def _cov(self, datacube: np.ndarray) -> np.ndarray:
         """Ковариация с diagonal loading: R = X@X.H/K + loading·(tr(R)/M)·I.
 
         Возвращает R (M, M), эрмитова, complex128.
         """
-        x_mat = self._reshape(datacube)
-        k_snap = x_mat.shape[1]
-        r_cov = (x_mat @ x_mat.conj().T) / k_snap
-        if self._loading > 0.0:
-            m_elem = r_cov.shape[0]
-            r_cov = r_cov + self._loading * (np.trace(r_cov).real / m_elem) * np.eye(
-                m_elem, dtype=r_cov.dtype
-            )
-        return r_cov
+        x_mat = reshape_datacube(datacube)
+        r_cov = sample_covariance(x_mat)
+        return apply_diagonal_loading(r_cov, self._loading)
 
     # ── публичный API ───────────────────────────────────────────────────────
 
@@ -95,6 +86,6 @@ class RobustMvdrNuller:
         np.ndarray
             Луч на цель, форма (K,), complex128.
         """
-        x_mat = self._reshape(datacube)                      # X (M, K)
+        x_mat = reshape_datacube(datacube)                    # X (M, K)
         w = self.weights(datacube)                            # (M,)
         return w.conj() @ x_mat                               # yᴴ = wᴴ X → (K,)

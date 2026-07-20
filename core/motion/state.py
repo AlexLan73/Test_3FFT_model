@@ -7,7 +7,9 @@ import numpy as np
 
 
 def _vec3(value: np.ndarray | tuple[float, float, float] | list[float]) -> np.ndarray:
-    arr = np.asarray(value, dtype=np.float64).reshape(3)
+    # np.array(..., copy=True) (дефолт) -- всегда новый буфер, в отличие от np.asarray
+    # (который вернул бы view на входной np.ndarray -- VO протекал бы наружу, H1).
+    arr = np.array(value, dtype=np.float64).reshape(3)
     arr.setflags(write=False)   # VO: состояние неизменяемо после конструирования
     return arr
 

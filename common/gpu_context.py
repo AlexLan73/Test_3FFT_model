@@ -20,6 +20,8 @@ Usage:
 """
 from __future__ import annotations
 
+import warnings
+
 from core.gpu_libs import loader as gpu_libs
 
 from .gpu_configs import first_active_gpu_id
@@ -74,7 +76,11 @@ class GPUContextManager:
                 return
             cls._rocm_context = dsp_core.ROCmGPUContext(device)
         except Exception as exc:  # GPU-init может падать по многим причинам (ROCm/HIP ошибки)
-            print(f"[GPUContextManager] dsp_core.ROCmGPUContext(device={device}) failed: {exc}")
+            warnings.warn(
+                f"[GPUContextManager] dsp_core.ROCmGPUContext(device={device}) failed: {exc}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
             cls._rocm_context = None
 
     @classmethod
