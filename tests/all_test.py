@@ -42,6 +42,7 @@ from tests.test_runtime import (
     SceneServerStepTests,
     TickLogTests,
     TransportTests,
+    WsReplayTests,
 )
 from tests.test_smoke import SmokeTests
 from tests.test_snr import SnrTests
@@ -60,7 +61,7 @@ SUITES = [SmokeTests, CameraTests, GraphicsTests, NullerTests, CfarTests, Cluste
           VolumeBuilderTests, LfmToCubeTests, AmToCubeTests, SquareViewTests,
           ApertureIxjTests,
           JammerSceneTests, MultiTargetTests,
-          TransportTests, TickLogTests, PanelPublisherTests,
+          TransportTests, TickLogTests, PanelPublisherTests, WsReplayTests,
           CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests,
           RawQueueTests, FileSourceTests,
           FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests, OsCfarPfaTests,

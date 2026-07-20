@@ -34,7 +34,7 @@ from __future__ import annotations
 import queue
 import threading
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Protocol
 
 from . import codec
@@ -239,7 +239,12 @@ class WebSocketTransport:
     `NotImplementedError` явно, а не тихо no-op.
     """
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 8765) -> None:
+    def __init__(
+        self,
+        host: str = "127.0.0.1",
+        port: int = 8765,
+        on_connect: Callable[[], Iterable[tuple[str, int, object]]] | None = None,
+    ) -> None:
         import asyncio
 
         import websockets
@@ -253,6 +258,20 @@ class WebSocketTransport:
         self._thread: threading.Thread | None = None
         self._ready = threading.Event()
         self._server: Any = None
+        # §4.4: реплей позднему клиенту -- при подключении шлём ему эти сообщения
+        # (напр. `PanelPublisher.replay_messages`: meta + весь лог сессии), см. `_handle_client`.
+        self._on_connect = on_connect
+
+    def set_on_connect(
+        self, on_connect: Callable[[], Iterable[tuple[str, int, object]]] | None
+    ) -> None:
+        """Зарегистрировать реплей позднему клиенту (§4.4): при подключении шлём эти сообщения.
+
+        Вызывается, напр., `PanelPublisher.start()` (duck-typing) -- поздний браузер получает
+        `meta` + снапшот лога сразу, а не ждёт следующего такта. Снимок берётся на КАЖДОЕ
+        подключение (актуальный на момент), поэтому передаём callable, а не готовый список.
+        """
+        self._on_connect = on_connect
 
     def start(self) -> None:
         if self._thread is not None:
@@ -281,6 +300,12 @@ class WebSocketTransport:
     async def _handle_client(self, websocket: Any) -> None:
         self._clients.add(websocket)
         try:
+            if self._on_connect is not None:
+                # §4.4: поздний клиент получает снапшот сессии (meta + весь лог) СРАЗУ при
+                # подключении -- иначе увидел бы сцену только со следующего такта. Реплей идёт
+                # ТОЛЬКО этому сокету (не broadcast). Callable вызывается на КАЖДОЕ подключение.
+                for topic, tact, payload in self._on_connect():
+                    await websocket.send(codec.encode(topic, tact, payload))
             async for _msg in websocket:
                 pass   # входящие сообщения браузера игнорируются -- см. докстринг класса
         finally:

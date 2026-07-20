@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import threading
 from collections import deque
 from dataclasses import dataclass
 from typing import Any
@@ -42,17 +43,24 @@ class TickLog:
 
     def __init__(self, cap: int | None = None) -> None:
         self._ticks: deque[Tick] = deque(maxlen=cap)
+        # Лог читается из ДРУГОГО треда (asyncio-цикл WS при on_connect-реплее позднему
+        # клиенту, §4.4), пишется из главного (push_tick) -- `tuple(deque)` на лету может
+        # словить "deque mutated during iteration", поэтому append/snapshot под локом.
+        self._lock = threading.Lock()
 
     def append(self, tick: Tick) -> None:
         """Добавить такт в конец лога (дропает самый старый при переполнении `cap`)."""
-        self._ticks.append(tick)
+        with self._lock:
+            self._ticks.append(tick)
 
     def snapshot(self) -> tuple[Tick, ...]:
         """Неизменяемая копия текущего лога (для позднего клиента/перемотки)."""
-        return tuple(self._ticks)
+        with self._lock:
+            return tuple(self._ticks)
 
     def __len__(self) -> int:
-        return len(self._ticks)
+        with self._lock:
+            return len(self._ticks)
 
 
 class PanelPublisher:
@@ -73,10 +81,31 @@ class PanelPublisher:
         return self._log
 
     def start(self) -> None:
-        """Запустить транспорт, если у него есть `start()` (напр. `WebSocketTransport`)."""
+        """Запустить транспорт + (если умеет) зарегистрировать on_connect-реплей позднему клиенту.
+
+        §4.4: транспорт с `set_on_connect` (напр. `WebSocketTransport`) при подключении нового
+        клиента дёрнет `replay_messages()` -- тот получит `meta` + весь лог сессии сразу, а не
+        будет ждать следующего такта. Транспорт без `set_on_connect` (напр. `ZmqTransport`) --
+        пропускается (duck-typing, DI-чистота: `PanelPublisher` не завязан на конкретный транспорт).
+        """
         start = getattr(self._transport, "start", None)
         if callable(start):
             start()
+        set_on_connect = getattr(self._transport, "set_on_connect", None)
+        if callable(set_on_connect):
+            set_on_connect(self.replay_messages)
+
+    def replay_messages(self) -> list[tuple[str, int, dict[str, Any]]]:
+        """Сообщения для реплея позднему клиенту (§4.4): `meta` (если была) + весь лог сессии.
+
+        Снимок берётся В МОМЕНТ вызова (на подключении клиента) -- он получает всё, что накопилось.
+        """
+        msgs: list[tuple[str, int, dict[str, Any]]] = []
+        if self._meta is not None:
+            msgs.append(("meta", 0, self._meta))
+        for tick in self._log.snapshot():
+            msgs.append(("tick", tick.index, tick.payload))
+        return msgs
 
     def push_meta(self, meta: dict[str, Any]) -> None:
         """Опубликовать `meta` сессии и запомнить её для `republish_meta()`."""

@@ -46,12 +46,16 @@ class _FakeTransport:
         self.calls: list[tuple[str, int, object]] = []
         self.started = False
         self.closed = False
+        self.on_connect = None   # §4.4: сюда PanelPublisher.start() регистрирует replay_messages
 
     def publish(self, topic: str, tact: int, payload: object) -> None:
         self.calls.append((topic, tact, payload))
 
     def subscribe(self, topic: str, callback) -> None:
         raise NotImplementedError("fake -- subscribe не поддержан")
+
+    def set_on_connect(self, on_connect) -> None:
+        self.on_connect = on_connect
 
     def start(self) -> None:
         self.started = True
@@ -333,8 +337,29 @@ class PanelPublisherTests(TestRunner):
         pub = PanelPublisher(fake)
         pub.start()
         g.add(fake.started, "start() должен вызвать transport.start(), если он есть")
+        g.add(fake.on_connect == pub.replay_messages,   # bound-метод: == (не is -- новый объект на доступ)
+              "start() должен зарегистрировать replay_messages в transport.set_on_connect (§4.4)")
         pub.close()
         g.add(fake.closed, "close() должен вызвать transport.close(), если он есть")
+        return g
+
+    def test_replay_messages_returns_meta_and_full_log(self) -> AssertionGroup:
+        """§4.4: поздний клиент получает meta (если была) + ВЕСЬ лог сессии по порядку."""
+        g = AssertionGroup("runtime.publisher_replay")
+        from core.runtime.panel_publisher import PanelPublisher
+
+        fake = _FakeTransport()
+        pub = PanelPublisher(fake)
+        g.add(pub.replay_messages() == [], "без meta и тактов реплей пуст")
+        meta = {"nx": 64, "ny": 64}
+        pub.push_meta(meta)
+        for i in range(3):
+            pub.push_tick(i, {"i": i})
+        replay = pub.replay_messages()
+        g.add(replay[0] == ("meta", 0, meta), "первым в реплее -- meta")
+        g.add([m[:2] for m in replay[1:]] == [("tick", 0), ("tick", 1), ("tick", 2)],
+              "далее -- весь лог тактов по порядку")
+        g.add(len(replay) == 4, f"реплей = meta + 3 такта = 4 сообщения, получили {len(replay)}")
         return g
 
     def test_codec_roundtrip_meta_and_tick(self) -> AssertionGroup:
@@ -359,6 +384,47 @@ class PanelPublisherTests(TestRunner):
         topic, tact, back_tick = codec.decode(raw_tick)
         g.add(topic == "tick" and tact == 3 and back_tick == tick,
               "tick должен пережить codec roundtrip без потерь")
+        return g
+
+
+class WsReplayTests(TestRunner):
+    """§4.4 end-to-end (headless, без браузера): поздний WS-клиент получает meta+лог при подключении."""
+
+    def test_late_client_receives_meta_and_log(self) -> AssertionGroup:
+        g = AssertionGroup("runtime.ws_on_connect_replay")
+        try:
+            import websockets  # noqa: F401
+        except ImportError as exc:
+            raise SkipTest("websockets не установлен -- WS-интеграция пропущена") from exc
+        _require_msgpack()
+
+        import asyncio
+
+        from core.runtime import codec
+        from core.runtime.panel_publisher import PanelPublisher
+        from core.runtime.transport import WebSocketTransport
+
+        port = 8793
+        pub = PanelPublisher(WebSocketTransport(port=port))
+        pub.start()   # поднимает WS + регистрирует replay_messages в on_connect
+        try:
+            meta = {"nx": 64, "ny": 64, "nAxis": 4096}
+            pub.push_meta(meta)                              # клиентов ещё нет -- уйдёт в лог/память
+            pub.push_tick(0, {"pts": []})
+            pub.push_tick(1, {"pts": [[1.0, 2.0, 3, 4.5]]})
+
+            async def _client() -> list[tuple[str, int, object]]:
+                async with websockets.connect(f"ws://127.0.0.1:{port}") as ws:
+                    raws = [await asyncio.wait_for(ws.recv(), timeout=3.0) for _ in range(3)]
+                return [codec.decode(r) for r in raws]
+
+            got = asyncio.run(_client())
+        finally:
+            pub.close()
+
+        g.add(got[0][0] == "meta" and got[0][2] == meta, "поздний клиент первым получил meta")
+        g.add(got[1][:2] == ("tick", 0) and got[2][:2] == ("tick", 1),
+              "далее -- весь накопленный лог тактов по порядку (0,1)")
         return g
 
 
@@ -743,7 +809,7 @@ class PanelAppTests(TestRunner):
 
 if __name__ == "__main__":
     ok = True
-    for cls in (TransportTests, TickLogTests, PanelPublisherTests, CommandTests,
+    for cls in (TransportTests, TickLogTests, PanelPublisherTests, WsReplayTests, CommandTests,
                 SceneServerStepTests, PanelModelTests, PanelAppTests):
         ok = cls().run_all() and ok
     sys.exit(0 if ok else 1)
