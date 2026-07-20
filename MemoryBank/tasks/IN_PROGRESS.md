@@ -8,12 +8,14 @@
 
 ## Сейчас в работе
 
-- 🎯 **АКТИВНАЯ: реалтайм-панель, ЭТАП A** (2026-07-20) — таск `tasks/TASK_realtime_panel_A.md`,
-  спека `specs/realtime_panel_2026-07-19.md` (§1–§4 СОГЛАСОВАНЫ, коммит `d187639`).
-  Этап A (БЕЗ GPU) делегирован Sonnet: `core/runtime/panel_publisher.py` (`Tick`/`TickLog`/
-  `PanelPublisher`) + `demo/ex4_flight/live_demo.py` + тесты. Кодо ждёт → глубокое ревью + сама гонит тесты.
-  ⚠️ **Два чата:** этот = база/demo (Этап A), ДРУГОЙ = GPU-обработка сырья. `SceneServer` не трогаю.
-  Дальше: Этап B (сырой куб→фронтенд по `sig`→ядро→tick), хук `on_connect` (§4.4).
+- 🎯 **АКТИВНАЯ: реалтайм-панель** (2026-07-20) — спека `specs/realtime_panel_2026-07-19.md`
+  (§1–§4 согласованы, §7 архитектура). Цель Alex: «строю всё не-GPU, GPU+проверка потом».
+  **Сделано и запушено:** спека (`d187639`); Этап A `PanelPublisher`/`TickLog`/`Tick`+`live_demo` (`454fa9f`);
+  рефактор `server.py` (`2cc7621`); план сырья `RawQueue`/`FileSource` (`6d4d924`); хук `on_connect` §4.4.
+  Таски: `TASK_realtime_panel_A.md`, `TASK_realtime_panel_rawplane.md`.
+  ⚠️ **Два чата:** этот = база/demo, ДРУГОЙ = GPU-обработка сырья (`SceneServer`/`generators` не трогаю).
+  **Дальше (без GPU):** сквозное демо `FileSource`→`RawQueue`→заглушка→`PanelPublisher`; канал start/stop (§4.2).
+  **GPU-чат:** генерация→`RawQueue.put`; Этап B `SignalFrontend[sig]`+ядро.
 
 - ✅ **Web-панель полёта НА СОКЕТАХ (P6)** (2026-07-19) — СДЕЛАНО. `demo/ex4_flight/server.py`
   (гоняет `Ex4Flight.run_history` раз → стримит такты `meta`/`tick` через `WebSocketTransport`,
