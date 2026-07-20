@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import numpy as np  # noqa: E402
 
 from core.graphics import Projection  # noqa: E402  — ЕДИНАЯ модель камеры (математика в core)
-from core.runtime.transport import WebSocketTransport  # noqa: E402
+from core.runtime import PanelPublisher, TickLog, WebSocketTransport  # noqa: E402
 from demo.ex4_flight.example import Ex4Flight, Ex4Params, TactRecord  # noqa: E402
 
 CROP_HALF = 8    # окно среза ±8 бинов вокруг трека (решение Alex 2A)
@@ -112,14 +112,20 @@ def build_session(ex: Ex4Flight) -> tuple[dict[str, Any], list[dict[str, Any]]]:
 
 
 def serve(port: int, tacts: int | None, delay_s: float, cycles: int | None) -> None:
-    """Прогнать ex4 один раз, поднять WS-шлюз, СТРИМить такты по кругу (живая панель)."""
+    """Прогнать ex4 один раз, поднять WS-шлюз, СТРИМить такты по кругу (живая панель).
+
+    Источник (предрасчёт `run_history`) развязан с транспортом через `PanelPublisher`
+    (Этап A спеки realtime_panel) — тот же публикатор, что `live_demo.py`. `TickLog`
+    с `cap=len(ticks)` держит ровно один проход истории (бесконечный реплей не растит
+    память); `republish_meta()` в начале каждого прохода — поздний клиент (slow joiner, N1).
+    """
     params = Ex4Params(tacts=90) if tacts is None else Ex4Params(tacts=tacts)
     ex = Ex4Flight(params=params)
     ex.run_history(np.random.default_rng(ex.seed))
     meta, ticks = build_session(ex)
 
-    transport = WebSocketTransport(port=port)
-    transport.start()
+    publisher = PanelPublisher(WebSocketTransport(port=port), log=TickLog(cap=len(ticks)))
+    publisher.start()
     print(f"ex4-server: ws://127.0.0.1:{port} · {meta['nTicks']} тактов · {ex._stats}")
     print("  открыть web/index.html в браузере → «Подключиться». Ctrl+C — стоп.")
 
@@ -128,15 +134,15 @@ def serve(port: int, tacts: int | None, delay_s: float, cycles: int | None) -> N
         while cycles is None or done < cycles:
             # meta в начале КАЖДОГО прохода: поздно подключившийся клиент получит
             # апертуру/камеру/станции в пределах одного цикла истории (slow joiner, N1).
-            transport.publish("meta", 0, meta)
+            publisher.push_meta(meta) if done == 0 else publisher.republish_meta()
             for i, tk in enumerate(ticks):
-                transport.publish("tick", i, tk)
+                publisher.push_tick(i, tk)
                 time.sleep(delay_s)
             done += 1
     except KeyboardInterrupt:
         print("\nex4-server: остановлен.")
     finally:
-        transport.close()
+        publisher.close()
 
 
 def main() -> None:
