@@ -20,6 +20,7 @@ from .commands import (
     Step,
     decode_command,
 )
+from .panel_publisher import PanelPublisher, Tick, TickLog
 from .scene_server import CMD_TOPIC, LiveTarget, SceneServer, SceneState
 from .transport import FanOutTransport, Transport, WebSocketTransport, ZmqTransport
 
@@ -29,4 +30,5 @@ __all__ = [
     "SceneServer", "SceneState", "LiveTarget", "CMD_TOPIC",
     "Command", "AddTarget", "RemoveTarget", "SetMotion", "EnableJammer",
     "Step", "SetNeighborPlanes", "decode_command", "COMMAND_REGISTRY",
+    "Tick", "TickLog", "PanelPublisher",
 ]

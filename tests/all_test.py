@@ -37,7 +37,9 @@ from tests.test_runtime import (
     CommandTests,
     PanelAppTests,
     PanelModelTests,
+    PanelPublisherTests,
     SceneServerStepTests,
+    TickLogTests,
     TransportTests,
 )
 from tests.test_smoke import SmokeTests
@@ -57,7 +59,8 @@ SUITES = [SmokeTests, CameraTests, GraphicsTests, NullerTests, CfarTests, Cluste
           VolumeBuilderTests, LfmToCubeTests, AmToCubeTests, SquareViewTests,
           ApertureIxjTests,
           JammerSceneTests, MultiTargetTests,
-          TransportTests, CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests,
+          TransportTests, TickLogTests, PanelPublisherTests,
+          CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests,
           FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests, OsCfarPfaTests,
           PeakRefineTests,
           CalibrationTests,

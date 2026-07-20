@@ -39,6 +39,27 @@ def _require_msgpack() -> None:
         raise SkipTest("msgpack не установлен -- кодек-тесты пропущены") from exc
 
 
+class _FakeTransport:
+    """Минимальный фейковый `Transport` (Этап A, `PanelPublisher`-тесты) -- копит publish-вызовы."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, int, object]] = []
+        self.started = False
+        self.closed = False
+
+    def publish(self, topic: str, tact: int, payload: object) -> None:
+        self.calls.append((topic, tact, payload))
+
+    def subscribe(self, topic: str, callback) -> None:
+        raise NotImplementedError("fake -- subscribe не поддержан")
+
+    def start(self) -> None:
+        self.started = True
+
+    def close(self) -> None:
+        self.closed = True
+
+
 class TransportTests(TestRunner):
     """Roundtrip `ZmqTransport` (N1: poll-барьер против slow-joiner) + `codec.py` (N2) + `FanOutTransport` (N4)."""
 
@@ -199,6 +220,145 @@ class TransportTests(TestRunner):
             g.add(raised, "publish(CMD_TOPIC) без cmd_connect должен кинуть RuntimeError")
         finally:
             data_only.close()
+        return g
+
+
+class TickLogTests(TestRunner):
+    """`TickLog` (Pure Fabrication, Этап A спеки realtime_panel) -- append-only, "храним ВСЁ"."""
+
+    def test_append_increases_len(self) -> AssertionGroup:
+        g = AssertionGroup("runtime.ticklog_append_len")
+        from core.runtime.panel_publisher import Tick, TickLog
+
+        log = TickLog()
+        g.add(len(log) == 0, "пустой лог -- len 0")
+        log.append(Tick(0, {"a": 1}))
+        log.append(Tick(1, {"a": 2}))
+        g.add(len(log) == 2, f"len должен вырасти до 2, получили {len(log)}")
+        return g
+
+    def test_snapshot_immutable_and_full(self) -> AssertionGroup:
+        """§4.1 "храним ВСЁ": snapshot -- неизменяемая копия ВСЕГО текущего лога."""
+        g = AssertionGroup("runtime.ticklog_snapshot_full")
+        from core.runtime.panel_publisher import Tick, TickLog
+
+        log = TickLog()
+        for i in range(5):
+            log.append(Tick(i, {"i": i}))
+        snap = log.snapshot()
+        g.add(isinstance(snap, tuple), "snapshot должен быть неизменяемым (tuple)")
+        g.add(len(snap) == 5, f"snapshot должен содержать все 5 тактов, получили {len(snap)}")
+        g.add([t.index for t in snap] == [0, 1, 2, 3, 4], "порядок тактов в snapshot сохранён")
+        log.append(Tick(5, {"i": 5}))
+        g.add(len(snap) == 5, "уже снятый snapshot не должен меняться при дальнейшем append")
+        return g
+
+    def test_cap_drops_oldest_fifo(self) -> AssertionGroup:
+        g = AssertionGroup("runtime.ticklog_cap_fifo")
+        from core.runtime.panel_publisher import Tick, TickLog
+
+        log = TickLog(cap=3)
+        for i in range(5):
+            log.append(Tick(i, {"i": i}))
+        g.add(len(log) <= 3, f"cap=3 -- лог не должен превышать потолок, len={len(log)}")
+        snap = log.snapshot()
+        g.add([t.index for t in snap] == [2, 3, 4],
+              f"при cap=3 должны остаться самые СВЕЖИЕ такты (FIFO-дроп старых), получили {[t.index for t in snap]}")
+        return g
+
+
+class PanelPublisherTests(TestRunner):
+    """`PanelPublisher` (Этап A спеки realtime_panel) -- тонкая обёртка над `Transport` (DI)."""
+
+    def test_push_meta_reaches_transport_and_is_remembered(self) -> AssertionGroup:
+        g = AssertionGroup("runtime.publisher_push_meta")
+        from core.runtime.panel_publisher import PanelPublisher
+
+        fake = _FakeTransport()
+        pub = PanelPublisher(fake)
+        meta = {"nx": 64, "ny": 64}
+        pub.push_meta(meta)
+        g.add(fake.calls == [("meta", 0, meta)], f"fake должен получить ('meta',0,meta), получили {fake.calls}")
+        return g
+
+    def test_push_tick_reaches_transport_and_log(self) -> AssertionGroup:
+        g = AssertionGroup("runtime.publisher_push_tick")
+        from core.runtime.panel_publisher import PanelPublisher
+
+        fake = _FakeTransport()
+        pub = PanelPublisher(fake)
+        payload = {"pts": [[1, 2, 3, 4.0]]}
+        pub.push_tick(7, payload)
+        g.add(fake.calls == [("tick", 7, payload)], f"fake должен получить ('tick',7,payload), получили {fake.calls}")
+        g.add(len(pub.log) == 1, "push_tick должен положить такт в TickLog")
+        g.add(pub.log.snapshot()[0].index == 7, "индекс такта в логе должен совпадать")
+        return g
+
+    def test_republish_meta_sends_last_meta_again(self) -> AssertionGroup:
+        g = AssertionGroup("runtime.publisher_republish_meta")
+        from core.runtime.panel_publisher import PanelPublisher
+
+        fake = _FakeTransport()
+        pub = PanelPublisher(fake)
+        # republish без предшествующего push_meta -- no-op (нечего повторять).
+        pub.republish_meta()
+        g.add(fake.calls == [], "republish_meta без meta не должен ничего публиковать")
+
+        meta = {"nx": 64}
+        pub.push_meta(meta)
+        pub.republish_meta()
+        g.add(fake.calls == [("meta", 0, meta), ("meta", 0, meta)],
+              f"republish_meta должен повторно опубликовать ПОСЛЕДНЮЮ meta, получили {fake.calls}")
+        return g
+
+    def test_tick_order_preserved(self) -> AssertionGroup:
+        g = AssertionGroup("runtime.publisher_tick_order")
+        from core.runtime.panel_publisher import PanelPublisher
+
+        fake = _FakeTransport()
+        pub = PanelPublisher(fake)
+        for i in range(10):
+            pub.push_tick(i, {"i": i})
+        g.add([c[1] for c in fake.calls] == list(range(10)),
+              "такты должны прийти в транспорт в порядке публикации")
+        g.add([t.index for t in pub.log.snapshot()] == list(range(10)),
+              "такты должны лежать в логе в порядке публикации")
+        return g
+
+    def test_start_and_close_delegate_to_transport(self) -> AssertionGroup:
+        g = AssertionGroup("runtime.publisher_start_close")
+        from core.runtime.panel_publisher import PanelPublisher
+
+        fake = _FakeTransport()
+        pub = PanelPublisher(fake)
+        pub.start()
+        g.add(fake.started, "start() должен вызвать transport.start(), если он есть")
+        pub.close()
+        g.add(fake.closed, "close() должен вызвать transport.close(), если он есть")
+        return g
+
+    def test_codec_roundtrip_meta_and_tick(self) -> AssertionGroup:
+        """То, что реально уходит в сокет: encode->decode переживает meta/tick публикатора."""
+        _require_msgpack()
+        g = AssertionGroup("runtime.publisher_codec_roundtrip")
+        from core.runtime import codec
+        from core.runtime.panel_publisher import PanelPublisher
+
+        fake = _FakeTransport()
+        pub = PanelPublisher(fake)
+        meta = {"nx": 64, "ny": 64, "nAxis": 4096, "stations": [{"kx": 1.0, "ky": -2.0}]}
+        pub.push_meta(meta)
+        tick = {"pts": [[1.0, 2.0, 3, 4.5]], "trk": [{"id": 1, "h": [[1.0, 2.0]]}], "sl": []}
+        pub.push_tick(3, tick)
+
+        raw_meta = codec.encode(*fake.calls[0])
+        topic, _tact, back_meta = codec.decode(raw_meta)
+        g.add(topic == "meta" and back_meta == meta, "meta должна пережить codec roundtrip без потерь")
+
+        raw_tick = codec.encode(*fake.calls[1])
+        topic, tact, back_tick = codec.decode(raw_tick)
+        g.add(topic == "tick" and tact == 3 and back_tick == tick,
+              "tick должен пережить codec roundtrip без потерь")
         return g
 
 
@@ -583,6 +743,7 @@ class PanelAppTests(TestRunner):
 
 if __name__ == "__main__":
     ok = True
-    for cls in (TransportTests, CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests):
+    for cls in (TransportTests, TickLogTests, PanelPublisherTests, CommandTests,
+                SceneServerStepTests, PanelModelTests, PanelAppTests):
         ok = cls().run_all() and ok
     sys.exit(0 if ok else 1)
