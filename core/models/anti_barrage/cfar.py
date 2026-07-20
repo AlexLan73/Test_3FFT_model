@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from core.models.result import SpectralCube
+from ..result import SpectralCube
 
 # ── Value Object — одна обнаруженная цель ────────────────────────────────────
 

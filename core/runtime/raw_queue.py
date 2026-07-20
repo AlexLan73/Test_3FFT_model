@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -86,12 +87,22 @@ class RawQueue:
             self._on_drop(dropped_frame)
 
     def get(self, timeout: float | None = None) -> RawFrame | None:
-        """Забрать самый старый кадр (FIFO); `None`, если очередь пуста по таймауту."""
+        """Забрать самый старый кадр (FIFO); `None`, если очередь пуста по таймауту.
+
+        Ждёт в цикле по монотонному дедлайну (`time.monotonic()`), а не одним
+        `wait(timeout)` — иначе ложное пробуждение (spurious wakeup) вернуло бы
+        `None` раньше фактического истечения `timeout`.
+        """
+        deadline = None if timeout is None else time.monotonic() + timeout
         with self._not_empty:
-            if not self._frames:
-                self._not_empty.wait(timeout=timeout)
-            if not self._frames:
-                return None
+            while not self._frames:
+                if deadline is None:
+                    self._not_empty.wait()
+                else:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        return None
+                    self._not_empty.wait(timeout=remaining)
             return self._frames.pop(0)
 
     def __len__(self) -> int:

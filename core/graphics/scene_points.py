@@ -75,8 +75,18 @@ class ScenePointsVisualizer:
 
     def render(self, points: list[ScenePoint], markers: tuple[SceneMarker, ...] = (),
                title: str = "", figsize: tuple[float, float] = (9.0, 7.0),
-               ax: plt.Axes | None = None) -> Figure:
-        """Сцена: точки (цвет=дБ) + маркеры истины (чёрные ▲). `ax` — для врезок-панелей."""
+               ax: plt.Axes | None = None, colorbar: bool | None = None) -> Figure:
+        """Сцена: точки (цвет=дБ) + маркеры истины (чёрные ▲). `ax` — для врезок-панелей.
+
+        Parameters
+        ----------
+        colorbar : bool | None
+            Явное управление colorbar. `None` (по умолчанию) — legacy-поведение
+            для обратной совместимости со старыми вызовами: colorbar рисуется,
+            если `ax.get_gid() != "no-colorbar"` (см. demo/ex2_am_square/example.py,
+            который помечает мелкие врезки `ax.set_gid("no-colorbar")`). Новый код
+            должен передавать `True`/`False` явно — тогда gid игнорируется.
+        """
         if ax is None:
             fig = plt.figure(figsize=figsize)
             ax = fig.add_subplot(111, projection="3d")
@@ -88,7 +98,9 @@ class ScenePointsVisualizer:
             sc = ax.scatter(xs, ys, zs, c=[pt.db for pt in points], cmap="turbo",
                             vmin=self._vmin, vmax=self._vmax, s=40, alpha=0.85,
                             edgecolors="none")
-            if ax.get_gid() != "no-colorbar":
+            show_colorbar = (colorbar if colorbar is not None
+                              else ax.get_gid() != "no-colorbar")
+            if show_colorbar:
                 fig.colorbar(sc, ax=ax, shrink=0.7, label="дБ")
         for mk in markers:
             x, y, z = self._coords(mk.kx, mk.ky, mk.range_pos)

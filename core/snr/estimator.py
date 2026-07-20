@@ -57,6 +57,15 @@ class SnrEstimator(Protocol):
 
     Спектральный оценщик **игнорирует** support.
     Статистический **требует** support; поднимает ValueError если support=None.
+
+    ⚠️ Предусловие по реализации (не единое для всех подклассов): сигнатура
+    `support: slice | None = None` в Protocol общая (совместимость обеих
+    реализаций), но КОНКРЕТНЫЙ класс может сузить допустимые значения —
+    `StatisticsSnrEstimator` работает только в домене «есть ground-truth
+    строб» и честно поднимает `ValueError` при `support=None`, а не пытается
+    угадать оценку без него. Вызывающий код обязан знать, с какой
+    реализацией работает (spectrum vs statistics), и передавать `support`
+    туда, где он обязателен.
     """
 
     def estimate(
@@ -64,6 +73,15 @@ class SnrEstimator(Protocol):
         signal: np.ndarray,
         support: slice | None = None,
     ) -> SnrResult:
+        """Оценить SNR по сигналу.
+
+        Parameters
+        ----------
+        signal  : complex[n_samples]
+        support : slice | None — ground-truth строб. Обязателен для реализаций,
+                   работающих в домене статистик (см. класс-докстринг); спектральные
+                   реализации его игнорируют.
+        """
         ...
 
 
