@@ -104,6 +104,17 @@ Type hints на override'ах `SignalSource.contribute` отсутствуют; 
 - `Transport` split (ISP) — оставлен рабочий обход (FanOut ловит NotImplementedError).
 - `SceneServer` сериализатор — не в скоупе (MED, низкая срочность).
 
-### Остаток MED/LOW (по желанию, отдельная волна)
-- LSP snr (`StatisticsSnrEstimator` ужесточает предусловие); `ScenePointsVisualizer` не наследует ABC;
-  `repository.py` os.path→pathlib + type hints; магические строки/stringly-typed; мелкие LOW из файлов кластеров.
+### ✅ Хвост MED/LOW — безопасная часть СДЕЛАНА (2026-07-20, коммит `3c73454`)
+- ✅ `anti_barrage/cfar.py` абсолютный импорт → относительный.
+- ✅ snr LSP: `SnrEstimator` Protocol — честная документация предусловия `support` (ValueError у
+  `StatisticsSnrEstimator` математически обоснован — вариант «а»).
+- ✅ `scene_points.py` colorbar: явный параметр `render(colorbar: bool|None)` вместо магической строки gid.
+- ✅ `RawQueue.get`: цикл по монотонному дедлайну (защита от spurious wakeup).
+
+**Осталось (по желанию / зависит):**
+- `ScenePointsVisualizer` не наследует `Visualizer(ABC)` — сигнатура `render` иная (points vs cube);
+  «фикс» = общая абстракция или документирование. Дизайн-вопрос, не мелочь — обсудить при желании.
+- `repository.py` os.path→pathlib + type hints — в `core/data_context/**`; безопасно, но отдельно.
+- stringly-typed `decision`/`kind` → `Literal` (tokenizer/arbiter) — осознанный выбор ради сериализации,
+  трогает models — отложено.
+- type hints на `SignalSource.contribute` override — в `core/generators/**` → Волна 3 (GPU-чат).
