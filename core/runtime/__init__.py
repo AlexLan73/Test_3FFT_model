@@ -21,6 +21,8 @@ from .commands import (
     decode_command,
 )
 from .panel_publisher import PanelPublisher, Tick, TickLog
+from .raw_queue import RawFrame, RawQueue
+from .raw_source import FileSource, RawCubeSource
 from .scene_server import CMD_TOPIC, LiveTarget, SceneServer, SceneState
 from .transport import FanOutTransport, Transport, WebSocketTransport, ZmqTransport
 
@@ -31,4 +33,5 @@ __all__ = [
     "Command", "AddTarget", "RemoveTarget", "SetMotion", "EnableJammer",
     "Step", "SetNeighborPlanes", "decode_command", "COMMAND_REGISTRY",
     "Tick", "TickLog", "PanelPublisher",
+    "RawFrame", "RawQueue", "RawCubeSource", "FileSource",
 ]

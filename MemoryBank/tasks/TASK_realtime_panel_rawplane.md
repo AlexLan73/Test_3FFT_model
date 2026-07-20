@@ -18,14 +18,15 @@
 3. Реэкспорт в `core/runtime/__init__.py`. Тесты `tests/test_raw_queue.py` (+ регистрация в `all_test.py`).
 4. README-секция про рантайм (публичный API + мини-пример + ссылка на спеку §7).
 
-## Приёмка (Кодо, после Sonnet)
+## Приёмка (Кодо, после Sonnet) — ✅ ПРИНЯТО 2026-07-20
 
-- [ ] `git diff` прочитан, соответствует ТЗ; чужие файлы (transport/codec/scene_server/generators/
-      models/example/server/live_demo/panel_publisher/web) НЕ тронуты.
-- [ ] `.venv/bin/python tests/test_raw_queue.py` + `tests/all_test.py` — зелёные (прогнать самой).
-- [ ] Независимый smoke: `RawQueue(maxsize=2)` дропает старые (dropped==3, свежие остались);
-      `FileSource` читает 3 temp-файла по порядку.
-- [ ] Новый набор в `all_test.py`; README не сломан.
+- [x] `git diff` прочитан, соответствует ТЗ; чужие файлы (transport/codec/scene_server/generators/
+      models/example/server/live_demo/panel_publisher/web) НЕ тронуты (только README/__init__/all_test + 3 новых).
+- [x] `tests/test_raw_queue.py` (`RawQueueTests` 5 · `FileSourceTests` 3) + `tests/all_test.py` —
+      прогнал сам: **весь бэкенд 0 fail**.
+- [x] Независимый smoke: `RawQueue(maxsize=2)` дропнул `[0,1,2]` (dropped=3), остались свежие `[3,4]`,
+      `on_drop` видел все три; `FileSource` читает 3 temp-файла по порядку с целостностью данных; stop-до-старта → 0.
+- [x] Набор в `all_test.py`; README-секция «Realtime-панель (core.runtime)» корректна (таблица двух планов + пример).
 
 ## Дальше
 

@@ -119,6 +119,31 @@ python train_cnn.py --steps 400 --batch 40   # обучение (нужен torc
 
 ---
 
+## Realtime-панель (core.runtime)
+
+Развязка источник↔панель для реалтайм-загрузки данных в веб-панель (`demo/ex4_flight`),
+два независимых плана данных (спека [`MemoryBank/specs/realtime_panel_2026-07-19.md`](MemoryBank/specs/realtime_panel_2026-07-19.md) §7):
+
+| План | Классы | Размер | Хранение |
+|------|--------|--------|----------|
+| Обработанное | `PanelPublisher` / `TickLog` / `Tick` | ~6 КБ/такт | храним ВСЁ (append-only лог сессии) |
+| Сырьё | `RawQueue` / `RawFrame` / `RawCubeSource` (`FileSource`) | велико (~МБ..ГБ/такт) | транзит: consume-and-drop (дроп самого старого) |
+
+Мини-пример (оффлайн-реплей записанного набора → обработка → панель; сама обработка —
+Этап B, GPU-чат, здесь не реализована):
+
+```python
+from core.runtime import RawQueue, FileSource
+
+raw_queue = RawQueue(maxsize=4)
+source = FileSource("path/to/recorded_cubes", sig="lfm", delay_s=0.1)
+# source.run(raw_queue.put, stop)               # producer-тред: сырьё → RawQueue
+# while True: frame = raw_queue.get(timeout=1.0) # consumer: фронтенд[sig] → ядро → tick
+#     ...                                        #   (Этап B, GPU-чат) → publisher.push_tick(...)
+```
+
+---
+
 ## Классы сцены
 
 `empty`, `target`, `barrage` (заградительная), `comb` (гребёнка DRFM), `ham` (стороннее / RFI).

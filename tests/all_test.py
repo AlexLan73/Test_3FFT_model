@@ -32,6 +32,7 @@ from tests.test_integration import FullPipelineIntegrationTests
 from tests.test_mvdr import MvdrNullerTests
 from tests.test_nuller import NullerTests
 from tests.test_peak_refine import PeakRefineTests
+from tests.test_raw_queue import FileSourceTests, RawQueueTests
 from tests.test_roi_gate import RoiGateTests
 from tests.test_runtime import (
     CommandTests,
@@ -61,6 +62,7 @@ SUITES = [SmokeTests, CameraTests, GraphicsTests, NullerTests, CfarTests, Cluste
           JammerSceneTests, MultiTargetTests,
           TransportTests, TickLogTests, PanelPublisherTests,
           CommandTests, SceneServerStepTests, PanelModelTests, PanelAppTests,
+          RawQueueTests, FileSourceTests,
           FeatureSeparationTests, RangeAssemblyTests, VolumeTokenizerTests, OsCfarPfaTests,
           PeakRefineTests,
           CalibrationTests,
