@@ -77,11 +77,33 @@ Type hints на override'ах `SignalSource.contribute` отсутствуют; 
    взаимозаменяем (H4). Абстракция есть — не подключена/не типизирована.
 4. **Наминг/стиль-нитки** — os.path vs pathlib, print в либе, type hints на override, dtype complex128.
 
-## Предложение по порядку правок (обсудить с Alex)
-- **Волна 1 (быстро, безопасно, высокий эффект):** H1 (copy в VO), результаты frozen, print→убрать,
-  подписи осей → AxisLayout, dtype complex64. Мелкие, тестируемые, без риска.
-- **Волна 2 (дизайн, обсудить):** H2 (сериализация помех), H3 (`Nuller` ABC), дубли формул → хелперы,
-  `Transport` split, `SceneServer` сериализатор.
-- **Волна 3 (с GPU-чатом):** H4 (HipBackend LSP), DIP backends — их территория, согласовать.
+## Статус правок (решения Alex приняты, порядок 4→2→1→3)
 
-> Правки НЕ начаты — жду решение Alex, какие темы/волны берём и в каком порядке.
+### ✅ Волны 1+2 СДЕЛАНЫ (2026-07-20, behavior-preserving, все тесты зелёные, ревью Кодо)
+- **H1** ✅ `TargetState` copy (`np.array` вместо `np.asarray` view) — не течёт (`shares_memory=False`).
+- **H2** ✅ `_scene_to_dict`/`from_dict` сериализуют `jammers`/`barrage`/`comb`/`ham_spec` обе стороны
+  (+ `tests/test_run_workspace.py` round-trip dict/yaml/defaults, 3 ok).
+- **H3** ✅ `Nuller(Protocol)` (`base.py`) — `AntiBarragePipeline` типизирован абстракцией; MVDR не подключён.
+- **Дубли математики (рег.07)** ✅ единый источник: `_covariance.py` (cov+diagonal-loading — nuller/mvdr),
+  `_integrate_state` (motion ×3), `SpectrumSnrEstimator._spectrum` (snr).
+- **Стиль** ✅ `print`→`warnings` (gpu_context), подписи осей → `AxisLayout` (angular_map).
+
+**⚠️ Судейские решения (на обсуждение):**
+1. `result.py` оставлен МУТАБЕЛЬНЫМ (вариант «б»): вендор-код, `.add()` нигде не вызывается — поправлен
+   только докстринг (убрано «неизменяемый»), а не введён `frozen`. Если хочешь строгий frozen — скажи.
+2. `ConstantAccel` НЕ через `_integrate_state` (считает acc напрямую, роутинг дал бы деление на dt=0).
+3. **Nuller LSP не полный:** `SubspaceNuller.apply`→куб, `RobustMvdrNuller.apply`→луч (разные формы).
+   OCP/DIP улучшены (pipeline на абстракции), но истинной взаимозаменяемости нет. При желании — общий
+   контракт формы выхода (отдельная задача).
+
+### ⏳ Волна 3 (с GPU-чатом) — отложена
+- **H4** `HipBackend` не LSP-substitutable, **DIP backends** хардкод `NumpyBackend`, **dtype** complex128
+  в `sources.py` — всё в `core/generators/**` (территория GPU-чата). Согласовать, чтобы не конфликтнуть.
+
+### Не берём (по решению Alex)
+- `Transport` split (ISP) — оставлен рабочий обход (FanOut ловит NotImplementedError).
+- `SceneServer` сериализатор — не в скоупе (MED, низкая срочность).
+
+### Остаток MED/LOW (по желанию, отдельная волна)
+- LSP snr (`StatisticsSnrEstimator` ужесточает предусловие); `ScenePointsVisualizer` не наследует ABC;
+  `repository.py` os.path→pathlib + type hints; магические строки/stringly-typed; мелкие LOW из файлов кластеров.
