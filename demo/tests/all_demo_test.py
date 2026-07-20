@@ -21,10 +21,11 @@ from demo.tests.test_ex5 import Ex5PeakRefineTests, Ex5WebTests  # noqa: E402
 from demo.tests.test_examples import Ex1AmLineTests  # noqa: E402
 from demo.tests.test_live_demo import LiveDemoTests  # noqa: E402
 from demo.tests.test_matched import Ex1MatchedTests  # noqa: E402
+from demo.tests.test_replay_pipeline import ReplayPipelineTests  # noqa: E402
 from demo.tests.test_stft import Ex1StftTests  # noqa: E402
 
 _SUITES = [Ex1AmLineTests, Ex1DenoiseTests, Ex1StftTests, Ex1MatchedTests, Ex2AmSquareTests,
-           Ex3EchoJammersTests, Ex4FlightTests, Ex4ServerTests, LiveDemoTests,
+           Ex3EchoJammersTests, Ex4FlightTests, Ex4ServerTests, LiveDemoTests, ReplayPipelineTests,
            Ex5PeakRefineTests, Ex5WebTests]
 
 
